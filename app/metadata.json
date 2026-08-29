@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix Boko",
+  "description": "An elegant e-commerce bookstore and checkout experience with tactile shelves, book reader preview, and multi-payment options.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

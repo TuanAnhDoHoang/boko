@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: boko_frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80" # Truy cập ở máy host qua port 3000. Cổng 80 là nội bộ của Nginx.
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
