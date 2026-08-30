@@ -14,9 +14,14 @@ func SetupRoutes(r *gin.Engine) {
 		c.JSON(200, gin.H{"message": "Boko API is running! 🚀"})
 	})
 
-	// Auth
+	// Auth — frontend tương thích
 	r.POST("/api/register", controllers.Register)
 	r.POST("/api/login", controllers.Login)
+
+	// Frontend gọi /api/auth/* (alias cho tương thích)
+	r.POST("/api/auth/login", controllers.Login)
+	r.POST("/api/auth/register", controllers.Register)
+	r.POST("/api/auth/logout", controllers.Logout)
 
 	// Books (public)
 	r.GET("/api/books", controllers.GetBooks)
@@ -34,9 +39,11 @@ func SetupRoutes(r *gin.Engine) {
 	auth := r.Group("/api")
 	auth.Use(middleware.AuthRequired)
 	{
-		// Profile
+		// Profile — frontend tương thích
 		auth.GET("/profile", controllers.GetProfile)
 		auth.PUT("/profile", controllers.UpdateProfile)
+		auth.GET("/auth/me", controllers.GetProfile)          // alias frontend
+		auth.PUT("/auth/profile", controllers.UpdateProfile)  // alias frontend
 
 		// Books (seller)
 		auth.POST("/books", middleware.SellerRequired, controllers.CreateBook)

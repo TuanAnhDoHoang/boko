@@ -52,9 +52,11 @@ func Register(c *gin.Context) {
 	}
 	config.DB.Create(&user)
 
+	// Frontend muốn { success, user, token }
 	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
 		"message": "Đăng ký thành công!",
-		"data": gin.H{
+		"user": gin.H{
 			"id":    user.ID,
 			"email": user.Email,
 			"name":  user.Name,
@@ -68,8 +70,9 @@ func Register(c *gin.Context) {
 // Login — đăng nhập, trả về JWT token
 func Login(c *gin.Context) {
 	var input struct {
-		Email    string `json:"email" binding:"required"`
-		Password string `json:"password" binding:"required"`
+		Identifier string `json:"identifier"`
+		Email      string `json:"email"`
+		Password   string `json:"password" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -77,8 +80,14 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Frontend gửi identifier (email hoặc username); backend dùng email
+	loginEmail := input.Email
+	if loginEmail == "" && input.Identifier != "" {
+		loginEmail = input.Identifier
+	}
+
 	var user models.User
-	if result := config.DB.Where("email = ?", input.Email).First(&user); errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if result := config.DB.Where("email = ?", loginEmail).First(&user); errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email hoặc mật khẩu không đúng"})
 		return
 	}
@@ -98,10 +107,13 @@ func Login(c *gin.Context) {
 
 	tokenString, _ := token.SignedString(middleware.JwtSecret)
 
+	// Frontend muốn { success, user, token }
+	// Backend trả { message, data, token }
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "Đăng nhập thành công!",
 		"token":   tokenString,
-		"data": gin.H{
+		"user": gin.H{
 			"id":    user.ID,
 			"email": user.Email,
 			"name":  user.Name,
@@ -122,8 +134,10 @@ func GetProfile(c *gin.Context) {
 		return
 	}
 
+	// Frontend muốn { success, user }
 	c.JSON(http.StatusOK, gin.H{
-		"data": gin.H{
+		"success": true,
+		"user": gin.H{
 			"id":    user.ID,
 			"email": user.Email,
 			"name":  user.Name,
@@ -168,5 +182,14 @@ func UpdateProfile(c *gin.Context) {
 
 	config.DB.Model(&user).Updates(updates)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Cập nhật thông tin thành công!"})
+	// Frontend muốn { success, message }
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Cập nhật thông tin thành công!"})
+}
+
+// Logout — đăng xuất (frontend cần, backend JWT stateless nên chỉ trả thành công)
+func Logout(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Đăng xuất thành công!",
+	})
 }
