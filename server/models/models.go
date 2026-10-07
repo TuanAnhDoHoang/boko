@@ -60,12 +60,16 @@ type Order struct {
 	Status          string      `json:"status" gorm:"default:pending"` // pending, confirmed, shipping, completed, cancelled
 	ShippingAddress string      `json:"shipping_address"`
 	Phone           string      `json:"phone"`
-	PaymentMethod   string      `json:"payment_method" gorm:"default:cod"` // cod | momo
-	CouponCode      string      `json:"coupon_code"`
-	DiscountPercent int         `json:"discount_percent" gorm:"default:0"`
-	Items           []OrderItem `json:"items,omitempty" gorm:"foreignKey:OrderID"`
-	CreatedAt       time.Time   `json:"created_at"`
-	UpdatedAt       time.Time   `json:"updated_at"`
+	PaymentMethod    string      `json:"payment_method" gorm:"default:cod"` // cod | momo | zalopay | vnpay...
+	PaymentStatus    string      `json:"payment_status" gorm:"default:unpaid"` // unpaid | paid | failed
+	PaymentTransID   string      `json:"payment_trans_id"`
+	PaymentOrderID   string      `json:"payment_order_id"`
+	PaymentRequestID string      `json:"payment_request_id"`
+	CouponCode       string      `json:"coupon_code"`
+	DiscountPercent  int         `json:"discount_percent" gorm:"default:0"`
+	Items            []OrderItem `json:"items,omitempty" gorm:"foreignKey:OrderID"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UpdatedAt        time.Time   `json:"updated_at"`
 }
 
 // OrderItem — chi tiết đơn hàng (lưu snapshot giá tại thời điểm mua)

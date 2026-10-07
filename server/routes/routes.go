@@ -34,6 +34,10 @@ func SetupRoutes(r *gin.Engine) {
 	// Reviews (public)
 	r.GET("/api/books/:id/reviews", controllers.GetBookReviews)
 
+	// Payments Webhook (public cho MoMo Sandbox Gateway gọi vào)
+	r.POST("/api/payment/momo/ipn", controllers.MomoIPN)
+	r.POST("/api/payment/momo/mock-ipn/:id", controllers.MockMomoIPN)
+
 	// ==================== PROTECTED ROUTES ====================
 
 	auth := r.Group("/api")
@@ -66,6 +70,10 @@ func SetupRoutes(r *gin.Engine) {
 		auth.GET("/orders", controllers.GetMyOrders)
 		auth.GET("/orders/:id", controllers.GetOrderDetail)
 		auth.PUT("/orders/:id/cancel", controllers.CancelOrder)
+
+		// Payments (user)
+		auth.POST("/payment/momo/create", controllers.CreateMomoPayment)
+		auth.GET("/payment/momo/status/:id", controllers.GetPaymentStatus)
 
 		// Reviews
 		auth.POST("/books/:id/reviews", controllers.CreateReview)
