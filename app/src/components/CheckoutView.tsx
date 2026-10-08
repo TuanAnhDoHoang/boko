@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { CartItem, CheckoutFormState, Currency, Order, User, ShippingAddress } from '../types';
-import { createMomoPaymentApi, createVnpayPaymentApi } from '../api/payment';
+import { createMomoPaymentApi, createVnpayPaymentApi, createPaypalPaymentApi } from '../api/payment';
+
+// PayPal không hỗ trợ VND → backend quy đổi sang USD (VNDPerUSD bên service)
+const VND_PER_USD = 25000;
 
 interface CheckoutViewProps {
   cart: CartItem[];
@@ -53,10 +56,12 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
   const [isSubmittingMomo, setIsSubmittingMomo] = useState<boolean>(false);
   const [momoMethod, setMomoMethod] = useState<'payWithMethod' | 'captureWallet'>('payWithMethod');
   const [isSubmittingVnpay, setIsSubmittingVnpay] = useState<boolean>(false);
+  const [isSubmittingPaypal, setIsSubmittingPaypal] = useState<boolean>(false);
   const [vnpayMethod, setVnpayMethod] = useState<'NCB' | 'VNPAYQR' | 'VISA'>('NCB');
 
   const savedCards = (user?.paymentMethods || []).filter((m) => m.type === 'card');
   const savedMomo = (user?.paymentMethods || []).filter((m) => m.type === 'momo');
+  const savedAtm = (user?.paymentMethods || []).filter((m) => m.type === 'atm');
   const savedZalo = (user?.paymentMethods || []).filter((m) => m.type === 'zalopay');
   const savedBanks = (user?.paymentMethods || []).filter((m) => m.type === 'bank');
 
@@ -135,6 +140,12 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
   const totalVND = subtotalVND - discountVND + vatVND + shippingVND;
 
   const isEUR = currency === 'EUR';
+  const totalUSD = Math.round((totalVND / VND_PER_USD) * 100) / 100;
+
+  const buildShippingAddress = () =>
+    `${formData.streetAddress || formData.address}, ${formData.ward || ''}, ${formData.province || formData.city || ''}`
+      .replace(/(^,\s*|,\s*$)/g, '')
+      .trim();
 
   const formatPrice = (eur: number, vnd: number) => {
     return isEUR ? `€ ${eur.toFixed(2)}` : `${vnd.toLocaleString('vi-VN')} ₫`;
@@ -182,6 +193,12 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     // Check non-COD payment integrations
     if (formData.paymentMethod === 'card' && savedCards.length === 0) {
       setFormErrors(['Bạn chưa tích hợp Thẻ tín dụng/ghi nợ trong Cài đặt. Vui lòng thêm thẻ thanh toán trước khi tiếp tục.']);
+      handleOpenSettingsTab('payments');
+      return;
+    }
+
+    if (formData.paymentMethod === 'atm' && savedAtm.length === 0) {
+      setFormErrors(['Bạn chưa liên kết Thẻ ATM nội địa trong Cài đặt. Vui lòng liên kết thẻ trước khi tiếp tục.']);
       handleOpenSettingsTab('payments');
       return;
     }
@@ -246,6 +263,58 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
       } catch (err: any) {
         setIsSubmittingVnpay(false);
         setFormErrors([err.message || 'Không thể tạo phiên thanh toán VNPAY Sandbox. Vui lòng kiểm tra lại.']);
+        return;
+      }
+    }
+
+    // Nếu chọn thanh toán qua PayPal -> Tạo đơn PayPal rồi chuyển hướng sang PayPal duyệt.
+    // PayPal duyệt xong redirect về /payment/paypal-callback để xác nhận và lưu đơn.
+    if (formData.paymentMethod === 'paypal') {
+      setIsSubmittingPaypal(true);
+      try {
+        const res = await createPaypalPaymentApi({
+          amount: Math.round(totalVND),
+          shippingAddress: buildShippingAddress() || 'Địa chỉ nhận sách Boko',
+          phone: formData.telephone,
+          email: formData.email,
+          redirectUrl: `${window.location.origin}/payment/paypal-callback`,
+        });
+
+        if (res && res.approve_url) {
+          window.location.href = res.approve_url;
+          return;
+        } else {
+          throw new Error('Không nhận được link duyệt PayPal.');
+        }
+      } catch (err: unknown) {
+        setIsSubmittingPaypal(false);
+        setFormErrors([(err as Error)?.message || 'Không thể tạo phiên thanh toán PayPal. Vui lòng kiểm tra lại.']);
+        return;
+      }
+    }
+
+    // Nếu chọn thanh toán qua PayPal -> Tạo đơn PayPal rồi chuyển hướng sang PayPal duyệt.
+    // PayPal duyệt xong redirect về /payment/paypal-callback để xác nhận và lưu đơn.
+    if (formData.paymentMethod === 'paypal') {
+      setIsSubmittingPaypal(true);
+      try {
+        const res = await createPaypalPaymentApi({
+          amount: Math.round(totalVND),
+          shippingAddress: buildShippingAddress() || 'Địa chỉ nhận sách Boko',
+          phone: formData.telephone,
+          email: formData.email,
+          redirectUrl: `${window.location.origin}/payment/paypal-callback`,
+        });
+
+        if (res && res.approve_url) {
+          window.location.href = res.approve_url;
+          return;
+        } else {
+          throw new Error('Không nhận được link duyệt PayPal.');
+        }
+      } catch (err: unknown) {
+        setIsSubmittingPaypal(false);
+        setFormErrors([(err as Error)?.message || 'Không thể tạo phiên thanh toán PayPal. Vui lòng kiểm tra lại.']);
         return;
       }
     }
@@ -622,6 +691,98 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                 )}
               </div>
 
+              {/* ATM Nội Địa Option (mock — liên kết trong Cài đặt, không trừ tiền thật) */}
+              <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    id="payment-atm"
+                    name="paymentMethod"
+                    checked={formData.paymentMethod === 'atm'}
+                    onChange={() => {
+                      setFormData((p) => ({ ...p, paymentMethod: 'atm' }));
+                      if (savedAtm.length === 0) {
+                        handleOpenSettingsTab('payments');
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                  />
+                  <label htmlFor="payment-atm" className="font-body text-base font-semibold text-slate-900 cursor-pointer">
+                    Thẻ ATM Nội Địa (Napas)
+                  </label>
+                  <div className="flex gap-2 ml-auto">
+                    <i className="fa-solid fa-building-columns text-slate-400 text-base"></i>
+                  </div>
+                </div>
+
+                {formData.paymentMethod === 'atm' && (
+                  <div className="pt-2 border-t border-slate-100 animate-fadeIn space-y-3">
+                    {savedAtm.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold text-slate-700">
+                          Thẻ ATM đã liên kết:
+                        </p>
+                        <div className="space-y-2">
+                          {savedAtm.map((method) => (
+                            <div
+                              key={method.id}
+                              className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${
+                                method.isDefault || selectedSavedPaymentId === method.id
+                                  ? 'bg-teal-50/60 border-teal-600'
+                                  : 'bg-white border-slate-200'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <i className="fa-solid fa-building-columns text-teal-700 text-base"></i>
+                                <div>
+                                  <p className="text-xs font-bold text-slate-900">{method.label}</p>
+                                  <p className="text-[11px] text-slate-500">Chủ thẻ: {method.accountHolder}</p>
+                                </div>
+                              </div>
+                              {method.isDefault && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-700 text-white">
+                                  Mặc định
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSettingsTab('payments')}
+                          className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1.5 mt-1 cursor-pointer"
+                        >
+                          <i className="fa-solid fa-gear text-xs"></i>
+                          <span>Quản lý thẻ ATM trong Cài đặt</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-900 space-y-3">
+                        <div className="flex items-start gap-2.5">
+                          <i className="fa-solid fa-triangle-exclamation text-amber-700 text-lg shrink-0 mt-0.5"></i>
+                          <div>
+                            <p className="text-xs font-bold text-amber-950">
+                              Chưa có thẻ ATM nào được liên kết
+                            </p>
+                            <p className="text-xs text-amber-800/90 mt-0.5">
+                              Vui lòng liên kết thẻ ATM nội địa của bạn tại trang Cài đặt trước khi thanh toán.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSettingsTab('payments')}
+                          className="w-full sm:w-auto px-4 py-2 rounded-lg bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <i className="fa-solid fa-building-columns text-xs"></i>
+                          <span>Mở Cài Đặt Để Liên Kết Thẻ ATM</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* E-wallets Option */}
               <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-4">
                 <div className="flex items-center gap-3">
@@ -919,6 +1080,42 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                 )}
               </div>
 
+              {/* PayPal Option (thu thật bằng redirect) */}
+              <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    id="payment-paypal"
+                    name="paymentMethod"
+                    checked={formData.paymentMethod === 'paypal'}
+                    onChange={() => {
+                      setFormData((p) => ({ ...p, paymentMethod: 'paypal' }));
+                    }}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                  />
+                  <label htmlFor="payment-paypal" className="font-body text-base font-semibold text-slate-900 cursor-pointer">
+                    PayPal (thanh toán quốc tế)
+                  </label>
+                  <div className="flex gap-2 ml-auto">
+                    <i className="fa-brands fa-paypal text-[#003087] text-xl"></i>
+                  </div>
+                </div>
+
+                {formData.paymentMethod === 'paypal' && (
+                  <div className="pt-2 border-t border-slate-100 animate-fadeIn space-y-3">
+                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 flex items-center gap-2">
+                      <i className="fa-brands fa-paypal text-[#003087] text-base"></i>
+                      <span>
+                        Tổng thanh toán qua PayPal:{' '}
+                        <strong className="text-slate-900">${totalUSD.toFixed(2)} USD</strong>{' '}
+                        <span className="text-slate-500">(≈ {totalVND.toLocaleString('vi-VN')} ₫)</span>.
+                        Bấm Continue để mở PayPal duyệt và trả tiền.
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Bank Transfer Option */}
               <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-4">
                 <div className="flex items-center gap-3">
@@ -1001,7 +1198,7 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
             <button
               type="button"
               onClick={handleSubmitOrder}
-              disabled={isSubmittingMomo || isSubmittingVnpay}
+              disabled={isSubmittingMomo || isSubmittingVnpay || isSubmittingPaypal}
               className={`text-white font-label-caps text-xs py-4 px-10 rounded-lg w-full sm:w-auto uppercase tracking-widest font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 ${
                 formData.paymentMethod === 'ewallet' && formData.ewalletType === 'momo'
                   ? 'bg-[#a50064] hover:bg-[#860051] shadow-pink-200'
@@ -1018,6 +1215,13 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                   <span>ĐANG KẾT NỐI VNPAY...</span>
                 </>
+              ) : isSubmittingPaypal ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>ĐANG KẾT NỐI PAYPAL...</span>
+                </>
+              ) : formData.paymentMethod === 'paypal' ? (
+                'ĐẶT HÀNG & THANH TOÁN PAYPAL'
               ) : formData.paymentMethod === 'ewallet' && formData.ewalletType === 'vnpay' ? (
                 'ĐẶT HÀNG & THANH TOÁN VNPAY'
               ) : formData.paymentMethod === 'ewallet' && formData.ewalletType === 'momo' ? (

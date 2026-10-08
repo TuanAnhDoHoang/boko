@@ -27,6 +27,11 @@ __debug_bin
 .env.*
 !.env.example
 
+# Env — credentials không bao giờ commit (dùng file mẫu + biến môi trường Render)
+.env
+.env.*
+!.env.example
+
 # IDE
 .vscode/
 .idea/
