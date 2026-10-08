@@ -61,8 +61,10 @@ func GetPaypalAccessToken() (string, error) {
 	return out.AccessToken, nil
 }
 
-// CreatePaypalOrder — tạo đơn PayPal (intent CAPTURE) với số tiền USD đã quy đổi
-func CreatePaypalOrder(totalVND float64) (*payments.PaypalCreateOrderResponse, error) {
+// CreatePaypalOrder — tạo đơn PayPal (intent CAPTURE) với số tiền USD đã quy đổi.
+// returnURL/cancelURL tùy chọn: có thì PayPal redirect về sau khi duyệt (luồng redirect
+// như VNPay/MoMo), không có thì dùng popup SDK (onApprove gọi capture sau).
+func CreatePaypalOrder(totalVND float64, returnURL, cancelURL string) (*payments.PaypalCreateOrderResponse, error) {
 	if totalVND <= 0 {
 		return nil, errors.New("tổng tiền không hợp lệ")
 	}
@@ -73,15 +75,22 @@ func CreatePaypalOrder(totalVND float64) (*payments.PaypalCreateOrderResponse, e
 		return nil, err
 	}
 
-	payload, _ := json.Marshal(map[string]interface{}{
-		"intent": "CAPTURE",
-		"purchase_units": []map[string]interface{}{
-			{
-				"description": "Boko Bookstore order",
-				"amount":      map[string]string{"currency_code": "USD", "value": amount},
-			},
-		},
-	})
+	purchaseUnit := map[string]interface{}{
+		"description": "Boko Bookstore order",
+		"amount":      map[string]string{"currency_code": "USD", "value": amount},
+	}
+	payloadMap := map[string]interface{}{
+		"intent":         "CAPTURE",
+		"purchase_units": []map[string]interface{}{purchaseUnit},
+	}
+	if strings.TrimSpace(returnURL) != "" {
+		appCtx := map[string]string{"return_url": strings.TrimSpace(returnURL)}
+		if strings.TrimSpace(cancelURL) != "" {
+			appCtx["cancel_url"] = strings.TrimSpace(cancelURL)
+		}
+		payloadMap["application_context"] = appCtx
+	}
+	payload, _ := json.Marshal(payloadMap)
 	cfg := payments.GetPaypalConfig()
 	req, _ := http.NewRequest("POST", cfg.BaseURL()+"/v2/checkout/orders", bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")

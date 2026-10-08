@@ -15,6 +15,7 @@ import { UsedBooksMarketView } from './components/UsedBooksMarketView';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { UserSettingsModal, SettingsTab } from './components/UserSettingsModal';
 import { LoginPage } from './pages/LoginPage';
+import { PaypalCallback } from './pages/PaypalCallback';
 import { RequireAuth } from './components/RequireAuth';
 import { getStoredAuthUser, logoutApi } from './api/auth';
 
@@ -362,6 +363,30 @@ export default function App() {
         />
 
         <Route path="/signup" element={<Navigate to="/register" replace />} />
+
+        {/* Payment Callback Route for PayPal (public, PayPal redirect về sau khi duyệt) */}
+        <Route
+          path="/payment/paypal-callback"
+          element={
+            <PaypalCallback
+              onOrderSuccessFinished={() => {
+                setCart([]);
+              }}
+            />
+          }
+        />
+
+        {/* Payment Callback Route for PayPal (public, PayPal redirect về sau khi duyệt) */}
+        <Route
+          path="/payment/paypal-callback"
+          element={
+            <PaypalCallback
+              onOrderSuccessFinished={() => {
+                setCart([]);
+              }}
+            />
+          }
+        />
 
         {/* Catch-all fallback Route -> If user not logged in, show RequireAuth; else redirect to / */}
         <Route

@@ -40,6 +40,11 @@ func SetupRoutes(r *gin.Engine) {
 	// PayPal mock capture (public, test nội bộ không cần tiền thật)
 	r.POST("/api/payment/paypal/mock-capture/:id", controllers.MockPaypalCapture)
 
+	// PayPal Payment Routes (hỗ trợ cả user đăng nhập và khách, giống VNPay)
+	r.GET("/api/payment/paypal/status/:id", middleware.AuthOptional, controllers.GetPaypalPaymentStatus)
+	r.POST("/api/payment/paypal/create", middleware.AuthOptional, controllers.CreatePaypalPayment)
+	r.POST("/api/payment/paypal/capture", middleware.AuthOptional, controllers.CapturePaypalPayment)
+
 	// ==================== PROTECTED ROUTES ====================
 
 	auth := r.Group("/api")
@@ -76,11 +81,6 @@ func SetupRoutes(r *gin.Engine) {
 		// Payments (user)
 		auth.POST("/payment/momo/create", controllers.CreateMomoPayment)
 		auth.GET("/payment/momo/status/:id", controllers.GetPaymentStatus)
-
-		// Payments PayPal (user) — cùng cấu trúc với MoMo
-		auth.POST("/payment/paypal/create", controllers.CreatePaypalPayment)
-		auth.POST("/payment/paypal/capture", controllers.CapturePaypalPayment)
-		auth.GET("/payment/paypal/status/:id", controllers.GetPaypalPaymentStatus)
 
 		// Reviews
 		auth.POST("/books/:id/reviews", controllers.CreateReview)
