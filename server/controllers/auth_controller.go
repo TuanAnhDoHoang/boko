@@ -52,10 +52,20 @@ func Register(c *gin.Context) {
 	}
 	config.DB.Create(&user)
 
-	// Frontend muốn { success, user, token }
+	// Tạo JWT ngay khi đăng ký thành công
+	regToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"email":   user.Email,
+		"role":    user.Role,
+		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
+	})
+	regTokenString, _ := regToken.SignedString(middleware.JwtSecret)
+
+	// Frontend nhận { success, user, token }
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"message": "Đăng ký thành công!",
+		"token":   regTokenString,
 		"user": gin.H{
 			"id":    user.ID,
 			"email": user.Email,
@@ -80,14 +90,14 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Frontend gửi identifier (email hoặc username); backend dùng email
-	loginEmail := input.Email
-	if loginEmail == "" && input.Identifier != "" {
-		loginEmail = input.Identifier
+	// Frontend gửi identifier (email hoặc username); backend hỗ trợ cả 2
+	loginKey := input.Email
+	if loginKey == "" && input.Identifier != "" {
+		loginKey = input.Identifier
 	}
 
 	var user models.User
-	if result := config.DB.Where("email = ?", loginEmail).First(&user); errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if result := config.DB.Where("email = ? OR name = ?", loginKey, loginKey).First(&user); errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email hoặc mật khẩu không đúng"})
 		return
 	}
@@ -97,18 +107,17 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Tạo JWT
+	// Tạo JWT (thời hạn 7 ngày)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
 		"email":   user.Email,
 		"role":    user.Role,
-		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
 	})
 
 	tokenString, _ := token.SignedString(middleware.JwtSecret)
 
-	// Frontend muốn { success, user, token }
-	// Backend trả { message, data, token }
+	// Frontend nhận { success, user, token }
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Đăng nhập thành công!",

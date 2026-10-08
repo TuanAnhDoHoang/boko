@@ -15,6 +15,8 @@ import { UsedBooksMarketView } from './components/UsedBooksMarketView';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { UserSettingsModal, SettingsTab } from './components/UserSettingsModal';
 import { LoginPage } from './pages/LoginPage';
+import { PaymentCallback } from './pages/PaymentCallback';
+import { VnpayCallback } from './pages/VnpayCallback';
 import { RequireAuth } from './components/RequireAuth';
 import { getStoredAuthUser, logoutApi } from './api/auth';
 
@@ -334,6 +336,30 @@ export default function App() {
                 }}
               />
             </RequireAuth>
+          }
+        />
+
+        {/* Payment Callback Route for MoMo Sandbox */}
+        <Route
+          path="/payment/momo-callback"
+          element={
+            <PaymentCallback
+              onOrderSuccessFinished={() => {
+                setCart([]);
+              }}
+            />
+          }
+        />
+
+        {/* Payment Callback Route for VNPAY Sandbox */}
+        <Route
+          path="/payment/vnpay-callback"
+          element={
+            <VnpayCallback
+              onOrderSuccessFinished={() => {
+                setCart([]);
+              }}
+            />
           }
         />
 

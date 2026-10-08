@@ -124,3 +124,47 @@ func TestCreateMomoPaymentUrl_LiveSandbox(t *testing.T) {
 	t.Logf("  - Message: %s", resp.Message)
 	t.Logf("  - PayURL: %s", resp.PayURL)
 }
+
+// TestCreateMomoPaymentUrl_PayWithATM — Kiểm tra cổng thanh toán thẻ ATM / Napas Test
+func TestCreateMomoPaymentUrl_PayWithATM(t *testing.T) {
+	testOrder := &models.Order{
+		ID:    888,
+		Total: 85000,
+	}
+
+	resp, err := CreateMomoPaymentUrl(testOrder, "http://localhost:3000/payment/callback", "payWithATM")
+	if err != nil {
+		t.Fatalf("Lỗi gọi MoMo Sandbox payWithATM: %v", err)
+	}
+
+	if resp.ResultCode != 0 {
+		t.Fatalf("MoMo Sandbox trả về resultCode lỗi: %d, message: %s", resp.ResultCode, resp.Message)
+	}
+
+	t.Logf("✅ Gọi MoMo Sandbox payWithATM thành công!")
+	t.Logf("  - OrderID: %s", resp.OrderID)
+	t.Logf("  - PayURL: %s", resp.PayURL)
+}
+
+// TestQueryMomoTransaction — Kiểm tra tra cứu trạng thái giao dịch qua MoMo Query API
+func TestQueryMomoTransaction(t *testing.T) {
+	testOrder := &models.Order{
+		ID:    777,
+		Total: 50000,
+	}
+
+	createResp, err := CreateMomoPaymentUrl(testOrder, "http://localhost:3000/payment/callback")
+	if err != nil {
+		t.Fatalf("Lỗi tạo giao dịch: %v", err)
+	}
+
+	queryResp, err := QueryMomoTransaction(createResp.OrderID, createResp.RequestID)
+	if err != nil {
+		t.Fatalf("Lỗi truy vấn MoMo transaction: %v", err)
+	}
+
+	t.Logf("✅ Tra cứu MoMo API thành công!")
+	t.Logf("  - OrderID: %s", queryResp.OrderID)
+	t.Logf("  - ResultCode: %d", queryResp.ResultCode)
+	t.Logf("  - Message: %s", queryResp.Message)
+}

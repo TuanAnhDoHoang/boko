@@ -34,9 +34,19 @@ func SetupRoutes(r *gin.Engine) {
 	// Reviews (public)
 	r.GET("/api/books/:id/reviews", controllers.GetBookReviews)
 
-	// Payments Webhook (public cho MoMo Sandbox Gateway gọi vào)
+	// Payments Webhook & Status (public cho MoMo Gateway và trang Callback)
 	r.POST("/api/payment/momo/ipn", controllers.MomoIPN)
 	r.POST("/api/payment/momo/mock-ipn/:id", controllers.MockMomoIPN)
+	r.POST("/api/payment/momo/simulator-ipn", controllers.MomoSimulatorIPN)
+	r.GET("/api/payment/momo/status/:id", middleware.AuthOptional, controllers.GetPaymentStatus)
+
+	// Payments Create (hỗ trợ cả người dùng đăng nhập và khách)
+	r.POST("/api/payment/momo/create", middleware.AuthOptional, controllers.CreateMomoPayment)
+
+	// VNPAY Payment Routes
+	r.GET("/api/payment/vnpay/ipn", controllers.VnPayIPN)
+	r.GET("/api/payment/vnpay/status/:id", middleware.AuthOptional, controllers.GetVnPayPaymentStatus)
+	r.POST("/api/payment/vnpay/create", middleware.AuthOptional, controllers.CreateVnPayPayment)
 
 	// ==================== PROTECTED ROUTES ====================
 
@@ -70,10 +80,6 @@ func SetupRoutes(r *gin.Engine) {
 		auth.GET("/orders", controllers.GetMyOrders)
 		auth.GET("/orders/:id", controllers.GetOrderDetail)
 		auth.PUT("/orders/:id/cancel", controllers.CancelOrder)
-
-		// Payments (user)
-		auth.POST("/payment/momo/create", controllers.CreateMomoPayment)
-		auth.GET("/payment/momo/status/:id", controllers.GetPaymentStatus)
 
 		// Reviews
 		auth.POST("/books/:id/reviews", controllers.CreateReview)

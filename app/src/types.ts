@@ -69,7 +69,7 @@ export interface CheckoutFormState {
   cardNumber: string;
   cardExpiry: string;
   cardCvv: string;
-  ewalletType: 'momo' | 'zalopay';
+  ewalletType: 'momo' | 'zalopay' | 'vnpay';
 }
 
 export interface ShippingAddress {
@@ -82,7 +82,7 @@ export interface ShippingAddress {
 
 export interface SavedPaymentMethod {
   id: string;
-  type: 'card' | 'momo' | 'zalopay' | 'bank';
+  type: 'card' | 'momo' | 'zalopay' | 'vnpay' | 'bank';
   label: string; // e.g. "Thẻ Visa •••• 8892" or "Ví MoMo - 0912 345 678"
   accountNumber: string;
   accountHolder: string;

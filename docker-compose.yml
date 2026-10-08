@@ -1,17 +1,59 @@
 version: '3.8'
 
 services:
+  # Database Service
+  db:
+    image: postgres:16-alpine
+    container_name: boko-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123456"
+      POSTGRES_DB: boko_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - boko-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d boko_db"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Backend Service
+  backend:
+    container_name: boko-backend
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - server/.env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: "123456"
+      DB_NAME: boko_db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+
   # Frontend Service
   app:
-    container_name: boko_app
+    container_name: boko-app
     build:
-      context: ./app        # Points to the app subdirectory
+      context: ./app
       dockerfile: Dockerfile
     ports:
       - "3000:80"
     restart: unless-stopped
     env_file:
       - app/.env
-    environment:
-      - NODE_ENV=production
- 
+    depends_on:
+      - backend
+
+volumes:
+  boko-pgdata:

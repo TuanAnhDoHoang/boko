@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CartItem, CheckoutFormState, Currency, Order, User, ShippingAddress } from '../types';
+import { createMomoPaymentApi, createVnpayPaymentApi } from '../api/payment';
 
 interface CheckoutViewProps {
   cart: CartItem[];
@@ -49,6 +50,10 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
 
   const [selectedSavedPaymentId, setSelectedSavedPaymentId] = useState<string | null>(null);
   const [savedSuccessMsg, setSavedSuccessMsg] = useState<string | null>(null);
+  const [isSubmittingMomo, setIsSubmittingMomo] = useState<boolean>(false);
+  const [momoMethod, setMomoMethod] = useState<'payWithMethod' | 'captureWallet'>('payWithMethod');
+  const [isSubmittingVnpay, setIsSubmittingVnpay] = useState<boolean>(false);
+  const [vnpayMethod, setVnpayMethod] = useState<'NCB' | 'VNPAYQR' | 'VISA'>('NCB');
 
   const savedCards = (user?.paymentMethods || []).filter((m) => m.type === 'card');
   const savedMomo = (user?.paymentMethods || []).filter((m) => m.type === 'momo');
@@ -159,7 +164,7 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     setTimeout(() => setCopiedBank(false), 2000);
   };
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Basic validation
@@ -182,11 +187,6 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     }
 
     if (formData.paymentMethod === 'ewallet') {
-      if (formData.ewalletType === 'momo' && savedMomo.length === 0) {
-        setFormErrors(['Bạn chưa liên kết Ví MoMo trong Cài đặt. Vui lòng liên kết ví trước khi tiếp tục.']);
-        handleOpenSettingsTab('payments');
-        return;
-      }
       if (formData.ewalletType === 'zalopay' && savedZalo.length === 0) {
         setFormErrors(['Bạn chưa liên kết Ví ZaloPay trong Cài đặt. Vui lòng liên kết ví trước khi tiếp tục.']);
         handleOpenSettingsTab('payments');
@@ -195,6 +195,60 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     }
 
     setFormErrors([]);
+
+    // Nếu chọn thanh toán qua Cổng MoMo Sandbox -> Tạo phiên và chuyển hướng sang trang MoMo
+    if (formData.paymentMethod === 'ewallet' && formData.ewalletType === 'momo') {
+      setIsSubmittingMomo(true);
+      try {
+        const fullAddress = `${formData.streetAddress || formData.address || ''}, ${formData.ward || ''}, ${formData.province || ''}`.trim();
+        const res = await createMomoPaymentApi({
+          amount: Math.round(totalVND),
+          shippingAddress: fullAddress || 'Địa chỉ nhận sách Boko',
+          phone: formData.telephone,
+          email: formData.email,
+          redirectUrl: `${window.location.origin}/payment/momo-callback`,
+          requestType: momoMethod,
+        });
+
+        if (res && res.pay_url) {
+          window.location.href = res.pay_url;
+          return;
+        } else {
+          throw new Error('Không nhận được đường link pay_url từ MoMo Sandbox.');
+        }
+      } catch (err: any) {
+        setIsSubmittingMomo(false);
+        setFormErrors([err.message || 'Không thể tạo phiên thanh toán MoMo Sandbox. Vui lòng kiểm tra lại.']);
+        return;
+      }
+    }
+
+    // Nếu chọn thanh toán qua Cổng VNPAY Sandbox -> Tạo phiên và chuyển hướng sang cổng VNPAY
+    if (formData.paymentMethod === 'ewallet' && formData.ewalletType === 'vnpay') {
+      setIsSubmittingVnpay(true);
+      try {
+        const fullAddress = `${formData.streetAddress || formData.address || ''}, ${formData.ward || ''}, ${formData.province || ''}`.trim();
+        const res = await createVnpayPaymentApi({
+          amount: Math.round(totalVND),
+          shippingAddress: fullAddress || 'Địa chỉ nhận sách Boko',
+          phone: formData.telephone,
+          email: formData.email,
+          bankCode: vnpayMethod,
+          redirectUrl: `${window.location.origin}/payment/vnpay-callback`,
+        });
+
+        if (res && res.payment_url) {
+          window.location.href = res.payment_url;
+          return;
+        } else {
+          throw new Error('Không nhận được đường link payment_url từ VNPAY Sandbox.');
+        }
+      } catch (err: any) {
+        setIsSubmittingVnpay(false);
+        setFormErrors([err.message || 'Không thể tạo phiên thanh toán VNPAY Sandbox. Vui lòng kiểm tra lại.']);
+        return;
+      }
+    }
 
     const newOrder: Order = {
       id: `BST-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -578,16 +632,11 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                     checked={formData.paymentMethod === 'ewallet'}
                     onChange={() => {
                       setFormData((p) => ({ ...p, paymentMethod: 'ewallet' }));
-                      const hasLinkedWallet =
-                        formData.ewalletType === 'momo' ? savedMomo.length > 0 : savedZalo.length > 0;
-                      if (!hasLinkedWallet) {
-                        handleOpenSettingsTab('payments');
-                      }
                     }}
                     className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                   />
                   <label htmlFor="payment-ewallet" className="font-body text-base font-semibold text-slate-900 cursor-pointer">
-                    Ví Điện Tử (MoMo, ZaloPay)
+                    Ví Điện Tử (MoMo,VNPay, ZaloPay)
                   </label>
                   <div className="flex gap-2 ml-auto">
                     <i className="fa-solid fa-wallet text-slate-400 text-base"></i>
@@ -596,25 +645,37 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
 
                 {formData.paymentMethod === 'ewallet' && (
                   <div className="pt-2 border-t border-slate-100 animate-fadeIn space-y-3">
-                    <div className="flex gap-3">
+                    <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
                       <button
                         type="button"
                         onClick={() => setFormData((p) => ({ ...p, ewalletType: 'momo' }))}
-                        className={`px-4 py-2 rounded-lg border text-xs font-bold uppercase transition-all cursor-pointer ${
+                        className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold uppercase transition-all cursor-pointer ${
                           formData.ewalletType === 'momo'
-                            ? 'bg-[#a50064] text-white border-[#a50064]'
-                            : 'bg-white text-slate-700 border-slate-200'
+                            ? 'bg-[#a50064] text-white border-[#a50064] shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
                         Ví MoMo
                       </button>
                       <button
                         type="button"
+                        onClick={() => setFormData((p) => ({ ...p, ewalletType: 'vnpay' }))}
+                        className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                          formData.ewalletType === 'vnpay'
+                            ? 'bg-blue-700 text-white border-blue-700 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>VNPAY</span>
+                        <span className="text-[10px] px-1 py-0.2 rounded font-semibold bg-amber-400 text-slate-900">Live</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setFormData((p) => ({ ...p, ewalletType: 'zalopay' }))}
-                        className={`px-4 py-2 rounded-lg border text-xs font-bold uppercase transition-all cursor-pointer ${
+                        className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold uppercase transition-all cursor-pointer ${
                           formData.ewalletType === 'zalopay'
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-slate-700 border-slate-200'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
                         ZaloPay
@@ -622,35 +683,205 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                     </div>
 
                     {formData.ewalletType === 'momo' && (
-                      savedMomo.length > 0 ? (
-                        <div className="p-3 rounded-xl bg-pink-50/70 border border-pink-200 space-y-1">
-                          <p className="text-xs font-bold text-pink-950 flex items-center gap-1.5">
-                            <i className="fa-solid fa-circle-check text-pink-700 text-sm"></i>
-                            <span>Ví MoMo đã liên kết: {savedMomo[0].accountNumber}</span>
-                          </p>
-                          <p className="text-[11px] text-pink-800">Chủ tài khoản: {savedMomo[0].accountHolder}</p>
-                        </div>
-                      ) : (
-                        <div className="p-4 rounded-xl bg-pink-50/70 border border-pink-200 space-y-3 text-pink-950">
-                          <div className="flex items-start gap-2">
-                            <i className="fa-solid fa-circle-info text-pink-700 text-base shrink-0 mt-0.5"></i>
-                            <div>
-                              <p className="text-xs font-bold">Chưa liên kết Ví MoMo trong Cài đặt</p>
-                              <p className="text-xs text-pink-900 mt-0.5">
-                                Tích hợp ví MoMo trong Cài đặt để xác thực và thanh toán 1 chạm an toàn.
-                              </p>
+                      <div className="space-y-3 pt-1">
+                        <p className="text-xs font-bold text-slate-700">
+                          Chọn phương thức qua cổng MoMo:
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Option 1: Pay with Method (Web: Visa, ATM, Wallet) */}
+                          <div
+                            onClick={() => setMomoMethod('payWithMethod')}
+                            className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                              momoMethod === 'payWithMethod'
+                                ? 'bg-pink-50/70 border-[#a50064] ring-1 ring-[#a50064]'
+                                : 'bg-white border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <input
+                                type="radio"
+                                id="momo-method"
+                                name="momoMethodChoice"
+                                checked={momoMethod === 'payWithMethod'}
+                                onChange={() => setMomoMethod('payWithMethod')}
+                                className="mt-0.5 text-[#a50064] focus:ring-[#a50064] border-slate-300 cursor-pointer"
+                              />
+                              <div>
+                                <label
+                                  htmlFor="momo-method"
+                                  className="text-xs font-bold text-slate-900 cursor-pointer block"
+                                >
+                                  Cổng MoMo Web (VISA / ATM / Ví)
+                                </label>
+                                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                  Thanh toán bằng Thẻ VISA, ATM hoặc ví trực tiếp trên Cổng MoMo
+                                </p>
+                              </div>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenSettingsTab('payments')}
-                            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-[#a50064] hover:bg-[#8e0056] text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+
+                          {/* Option 2: Scan QR Code */}
+                          <div
+                            onClick={() => setMomoMethod('captureWallet')}
+                            className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                              momoMethod === 'captureWallet'
+                                ? 'bg-pink-50/70 border-[#a50064] ring-1 ring-[#a50064]'
+                                : 'bg-white border-slate-200 hover:border-slate-300'
+                            }`}
                           >
-                            <i className="fa-solid fa-link text-xs"></i>
-                            <span>Mở Cài Đặt Để Liên Kết Ví MoMo</span>
-                          </button>
+                            <div className="flex items-start gap-2.5">
+                              <input
+                                type="radio"
+                                id="momo-qr"
+                                name="momoMethodChoice"
+                                checked={momoMethod === 'captureWallet'}
+                                onChange={() => setMomoMethod('captureWallet')}
+                                className="mt-0.5 text-[#a50064] focus:ring-[#a50064] border-slate-300 cursor-pointer"
+                              />
+                              <div>
+                                <label
+                                  htmlFor="momo-qr"
+                                  className="text-xs font-bold text-slate-900 cursor-pointer block"
+                                >
+                                  Quét mã QR MoMo (App)
+                                </label>
+                                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                  Hiển thị mã QR trên Cổng MoMo để quét bằng app Ví MoMo
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      )
+                      </div>
+                    )}
+
+                    {formData.ewalletType === 'vnpay' && (
+                      <div className="space-y-3 pt-1 animate-fadeIn">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-slate-700">
+                            Phương thức qua Cổng VNPAY Sandbox:
+                          </p>
+                          <span className="text-[10px] text-blue-700 font-semibold bg-blue-100 px-2 py-0.5 rounded-full">
+                            HMAC-SHA512 Security
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          {/* Option 1: NCB ATM Card */}
+                          <div
+                            onClick={() => setVnpayMethod('NCB')}
+                            className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                              vnpayMethod === 'NCB'
+                                ? 'bg-blue-50/70 border-blue-600 ring-1 ring-blue-600'
+                                : 'bg-white border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <input
+                                type="radio"
+                                id="vnpay-atm"
+                                name="vnpayMethodChoice"
+                                checked={vnpayMethod === 'NCB'}
+                                onChange={() => setVnpayMethod('NCB')}
+                                className="mt-0.5 text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                              />
+                              <div>
+                                <label
+                                  htmlFor="vnpay-atm"
+                                  className="text-xs font-bold text-slate-900 cursor-pointer block"
+                                >
+                                  🏦 Thẻ ATM (NCB)
+                                </label>
+                                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                  Thẻ ATM ngân hàng NCB test
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Option 2: VNPAY-QR */}
+                          <div
+                            onClick={() => setVnpayMethod('VNPAYQR')}
+                            className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                              vnpayMethod === 'VNPAYQR'
+                                ? 'bg-blue-50/70 border-blue-600 ring-1 ring-blue-600'
+                                : 'bg-white border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <input
+                                type="radio"
+                                id="vnpay-qr"
+                                name="vnpayMethodChoice"
+                                checked={vnpayMethod === 'VNPAYQR'}
+                                onChange={() => setVnpayMethod('VNPAYQR')}
+                                className="mt-0.5 text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                              />
+                              <div>
+                                <label
+                                  htmlFor="vnpay-qr"
+                                  className="text-xs font-bold text-slate-900 cursor-pointer block"
+                                >
+                                  📱 VNPAY-QR
+                                </label>
+                                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                  Quét mã trên App Ngân Hàng
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Option 3: VISA / MasterCard */}
+                          <div
+                            onClick={() => setVnpayMethod('VISA')}
+                            className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                              vnpayMethod === 'VISA'
+                                ? 'bg-blue-50/70 border-blue-600 ring-1 ring-blue-600'
+                                : 'bg-white border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <input
+                                type="radio"
+                                id="vnpay-visa"
+                                name="vnpayMethodChoice"
+                                checked={vnpayMethod === 'VISA'}
+                                onChange={() => setVnpayMethod('VISA')}
+                                className="mt-0.5 text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                              />
+                              <div>
+                                <label
+                                  htmlFor="vnpay-visa"
+                                  className="text-xs font-bold text-slate-900 cursor-pointer block"
+                                >
+                                  💳 Thẻ Quốc Tế
+                                </label>
+                                <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                  Thẻ Visa, MasterCard, JCB
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {vnpayMethod === 'NCB' && (
+                          <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/90 text-[11px] text-blue-950 space-y-1.5">
+                            <p className="font-bold text-blue-900 flex items-center gap-1.5">
+                              <i className="fa-solid fa-credit-card text-blue-700"></i>
+                              <span>Thông tin thẻ Test Sandbox Ngân hàng NCB:</span>
+                            </p>
+                            <div className="bg-white/95 p-2.5 rounded-lg border border-blue-200/70 space-y-1">
+                              <p>Ngân hàng: <strong className="text-slate-900">NCB (Ngân hàng Quốc Dân)</strong></p>
+                              <p>Số thẻ test: <strong className="font-mono text-blue-800 font-bold tracking-wider">9704198526191432198</strong></p>
+                              <p>Tên chủ thẻ: <strong className="font-mono text-slate-900">NGUYEN VAN A</strong> | Ngày phát hành: <strong className="font-mono text-slate-900">07/15</strong></p>
+                              <p>Mã OTP xác thực: <strong className="font-mono text-emerald-700 font-bold text-xs bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">123456</strong></p>
+                            </div>
+                            <p className="text-[10px] text-slate-500 italic">
+                              Hệ thống sẽ chuyển hướng thẳng sang Cổng VNPAY Sandbox thật, không cần cài thêm App.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {formData.ewalletType === 'zalopay' && (
@@ -770,9 +1001,30 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
             <button
               type="button"
               onClick={handleSubmitOrder}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-label-caps text-xs py-4 px-12 rounded-lg w-full sm:w-auto uppercase tracking-widest font-bold shadow-md shadow-blue-200 transition-all cursor-pointer"
+              disabled={isSubmittingMomo || isSubmittingVnpay}
+              className={`text-white font-label-caps text-xs py-4 px-10 rounded-lg w-full sm:w-auto uppercase tracking-widest font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                formData.paymentMethod === 'ewallet' && formData.ewalletType === 'momo'
+                  ? 'bg-[#a50064] hover:bg-[#860051] shadow-pink-200'
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
+              } disabled:opacity-60`}
             >
-              Continue
+              {isSubmittingMomo ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>ĐANG KẾT NỐI MOMO...</span>
+                </>
+              ) : isSubmittingVnpay ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>ĐANG KẾT NỐI VNPAY...</span>
+                </>
+              ) : formData.paymentMethod === 'ewallet' && formData.ewalletType === 'vnpay' ? (
+                'ĐẶT HÀNG & THANH TOÁN VNPAY'
+              ) : formData.paymentMethod === 'ewallet' && formData.ewalletType === 'momo' ? (
+                'ĐẶT HÀNG & THANH TOÁN MOMO'
+              ) : (
+                'CONTINUE'
+              )}
             </button>
           </div>
         </section>
