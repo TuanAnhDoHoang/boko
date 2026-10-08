@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { User, ShippingAddress, SavedPaymentMethod } from '../types';
 import logoImg from '../assets/images/app_main_logo_1786578722639.jpg';
+import { OrderProgressStepper } from './OrderProgressStepper';
+import { getMyOrdersApi } from '../api/order';
 
-export type SettingsTab = 'profile' | 'address' | 'payments';
+export type SettingsTab = 'profile' | 'orders' | 'address' | 'payments';
 
 interface UserSettingsModalProps {
   isOpen: boolean;
@@ -70,6 +72,92 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const [isDefaultMethod, setIsDefaultMethod] = useState(false);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Tab 4: Orders Management
+  const [ordersList, setOrdersList] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('boko_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'orders' || isOpen) {
+      setIsLoadingOrders(true);
+      getMyOrdersApi(user?.email)
+        .then((backendOrders) => {
+          if (Array.isArray(backendOrders) && backendOrders.length > 0) {
+            const localSaved = (() => {
+              try {
+                return JSON.parse(localStorage.getItem('boko_orders') || '[]');
+              } catch {
+                return [];
+              }
+            })();
+
+            const merged = [...localSaved];
+            backendOrders.forEach((bo: any) => {
+              const exists = merged.some((lo: any) => lo.dbId === bo.id || lo.id === `BST-${bo.id}` || lo.id === bo.id);
+              if (!exists) {
+                merged.push({
+                  id: `BST-${bo.id}`,
+                  dbId: bo.id,
+                  date: new Date(bo.created_at || Date.now()).toLocaleDateString('vi-VN'),
+                  items: (bo.items || []).map((it: any) => ({
+                    book: {
+                      id: String(it.book_id || it.id),
+                      title: it.title || 'Sách',
+                      author: 'Boko Publisher',
+                      priceVND: it.price || 0,
+                      priceEUR: Math.round((it.price || 0) / 25000),
+                    },
+                    quantity: it.quantity || 1,
+                  })),
+                  totalVND: bo.total,
+                  totalEUR: Math.round(bo.total / 25000),
+                  currency: 'VND',
+                  status: bo.status || 'shipping',
+                  paymentStatus: bo.payment_status || 'unpaid',
+                  paymentMethod: bo.payment_method || 'cod',
+                  shippingAddress: bo.shipping_address,
+                  phone: bo.phone,
+                });
+              }
+            });
+
+            setOrdersList(merged);
+            localStorage.setItem('boko_orders', JSON.stringify(merged));
+          }
+        })
+        .catch((err) => console.warn('Could not fetch backend orders:', err))
+        .finally(() => setIsLoadingOrders(false));
+    }
+  }, [activeTab, isOpen, user?.email]);
+
+  const handleUpdateOrderStatus = (orderId: string | number, updatedStatus: string, updatedPayment: string) => {
+    setOrdersList((prev) => {
+      const updated = prev.map((ord) => {
+        if (ord.id === orderId || ord.dbId === orderId || String(ord.id) === String(orderId)) {
+          return {
+            ...ord,
+            status: updatedStatus,
+            paymentStatus: updatedPayment,
+          };
+        }
+        return ord;
+      });
+      try {
+        localStorage.setItem('boko_orders', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+    showToast('Cập nhật trạng thái đơn hàng thành công!');
+  };
 
   // Sync state with user and initial tab
   useEffect(() => {
@@ -353,6 +441,27 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
           >
             <i className="fa-solid fa-user text-xs"></i>
             <span>Thông Tin Cơ Bản</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('orders');
+              setShowAddPaymentForm(false);
+            }}
+            className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+              activeTab === 'orders'
+                ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+            }`}
+          >
+            <i className="fa-solid fa-box-archive text-xs"></i>
+            <span>Đơn Hàng Của Tôi</span>
+            {ordersList.length > 0 && (
+              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">
+                {ordersList.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -1071,6 +1180,171 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                   ))
                 )}
               </div>
+            </div>
+          )}
+
+          {/* =========================================================
+              TAB 4: ĐƠN HÀNG CỦA TÔI
+             ========================================================= */}
+          {activeTab === 'orders' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+                <div>
+                  <h4 className="font-display font-bold text-base text-slate-900">
+                    Lịch Sử & Tiến Trình Đơn Hàng
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Theo dõi chặng đường shipper giao sách và bấm xác nhận khi đã nhận được bưu kiện
+                  </p>
+                </div>
+                {ordersList.length > 0 && (
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    Tổng cộng: {ordersList.length} đơn hàng
+                  </span>
+                )}
+              </div>
+
+              {isLoadingOrders && ordersList.length === 0 ? (
+                <div className="text-center py-16 space-y-3">
+                  <span className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin inline-block"></span>
+                  <p className="text-xs font-semibold text-slate-500">Đang tải danh sách đơn hàng...</p>
+                </div>
+              ) : ordersList.length === 0 ? (
+                <div className="text-center py-16 px-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-2xl">
+                    <i className="fa-solid fa-box-open"></i>
+                  </div>
+                  <h5 className="font-display font-bold text-sm text-slate-800">
+                    Bạn chưa có đơn hàng nào
+                  </h5>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Hãy dạo quanh tủ sách Boko, chọn những tác phẩm bạn yêu thích và tiến hành đặt hàng để theo dõi tại đây!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-blue-200 cursor-pointer"
+                  >
+                    Khám Phá Tủ Sách Ngay
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {ordersList.map((order: any, idx: number) => {
+                    const isCod = (order.paymentMethod || 'cod').toLowerCase() === 'cod';
+                    const isCompleted = order.status === 'completed';
+
+                    return (
+                      <div
+                        key={order.id || idx}
+                        className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-5 hover:border-slate-300 transition-all"
+                      >
+                        {/* Order Header */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold">
+                              <i className="fa-solid fa-receipt"></i>
+                            </span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h5 className="font-display font-bold text-sm text-slate-900 font-mono">
+                                  {order.id}
+                                </h5>
+                                <span className="text-[10px] text-slate-400">• {order.date}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Hình thức:{' '}
+                                <strong className="text-slate-700 uppercase">
+                                  {isCod
+                                    ? 'Thanh toán khi nhận hàng (COD)'
+                                    : order.paymentMethod === 'vnpay'
+                                    ? 'VNPAY Sandbox'
+                                    : order.paymentMethod === 'momo'
+                                    ? 'Ví MoMo'
+                                    : order.paymentMethod === 'paypal'
+                                    ? 'PayPal'
+                                    : order.paymentMethod || 'COD'}
+                                </strong>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {isCompleted ? (
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1.5 border border-emerald-200">
+                                <i className="fa-solid fa-circle-check text-emerald-600"></i>
+                                <span>Đã Hoàn Thành</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 flex items-center gap-1.5 border border-blue-200">
+                                <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                                <span>Đang Giao Hàng</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Order Items Summary */}
+                        {order.items && order.items.length > 0 && (
+                          <div className="space-y-2 py-1">
+                            <p className="text-xs font-bold text-slate-700">Các cuốn sách đã mua:</p>
+                            <div className="space-y-1.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                              {order.items.map((it: any, iIdx: number) => (
+                                <div key={iIdx} className="flex justify-between items-center text-xs">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="font-bold text-blue-600 shrink-0">
+                                      {it.quantity}x
+                                    </span>
+                                    <span className="font-medium text-slate-800 truncate">
+                                      {it.book?.title || it.title || 'Sách'}
+                                    </span>
+                                  </div>
+                                  <span className="font-bold text-slate-900 shrink-0 ml-2">
+                                    {((it.book?.priceVND || it.price || 0) * (it.quantity || 1)).toLocaleString('vi-VN')} ₫
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Total & Shipping Info */}
+                        <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 pt-1">
+                          <div>
+                            {order.shippingAddress && (
+                              <p className="text-[11px] text-slate-500">
+                                Giao đến: <strong className="text-slate-700">{order.shippingAddress}</strong>
+                                {order.phone ? ` • SĐT: ${order.phone}` : ''}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right ml-auto">
+                            <span className="text-xs text-slate-500 mr-1.5">Tổng tiền:</span>
+                            <span className="text-base font-bold text-slate-900 font-display">
+                              {(order.totalVND || order.total || 0).toLocaleString('vi-VN')} ₫
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Realtime 4-step Progress Stepper */}
+                        <div className="pt-2">
+                          <OrderProgressStepper
+                            orderId={order.dbId || order.id}
+                            status={order.status || 'shipping'}
+                            paymentMethod={order.paymentMethod || 'cod'}
+                            paymentStatus={order.paymentStatus || 'unpaid'}
+                            totalVND={order.totalVND || order.total}
+                            compact={false}
+                            onConfirmSuccess={() => {
+                              handleUpdateOrderStatus(order.id, 'completed', 'paid');
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

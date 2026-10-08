@@ -153,17 +153,148 @@ func CreateOrder(c *gin.Context) {
 	})
 }
 
-// GetMyOrders — lịch sử đơn hàng của user
+// GetMyOrders — lịch sử đơn hàng của user (hỗ trợ cả token auth hoặc theo email query)
 func GetMyOrders(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-
 	var orders []models.Order
-	config.DB.Preload("Items").
-		Where("user_id = ?", userID).
-		Order("created_at DESC").
-		Find(&orders)
+	query := config.DB.Preload("Items")
 
+	if val, exists := c.Get("user_id"); exists {
+		if uid, ok := val.(uint); ok && uid > 0 {
+			query = query.Where("user_id = ?", uid)
+		}
+	} else if email := c.Query("email"); email != "" {
+		var user models.User
+		if err := config.DB.Where("email = ?", email).First(&user).Error; err == nil {
+			query = query.Where("user_id = ?", user.ID)
+		} else {
+			c.JSON(http.StatusOK, gin.H{"data": []models.Order{}})
+			return
+		}
+	}
+
+	query.Order("created_at DESC").Find(&orders)
 	c.JSON(http.StatusOK, gin.H{"data": orders})
+}
+
+// CreateCodOrder — Tạo đơn hàng COD trực tiếp từ giỏ hàng checkout
+func CreateCodOrder(c *gin.Context) {
+	var input struct {
+		Amount          float64 `json:"amount"`
+		ShippingAddress string  `json:"shipping_address"`
+		Phone           string  `json:"phone"`
+		Email           string  `json:"email"`
+		CustomerName    string  `json:"customer_name"`
+		CouponCode      string  `json:"coupon_code"`
+		Items           []struct {
+			BookID   uint    `json:"book_id"`
+			Title    string  `json:"title"`
+			Price    float64 `json:"price"`
+			Quantity int     `json:"quantity"`
+		} `json:"items"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
+
+	// Xác định user_id: ưu tiên từ JWT token đã xác thực, nếu không có thì liên kết qua email hoặc tài khoản khách
+	var currentUserID uint
+	if val, exists := c.Get("user_id"); exists {
+		if uid, ok := val.(uint); ok {
+			currentUserID = uid
+		}
+	}
+
+	if currentUserID == 0 {
+		targetEmail := input.Email
+		if targetEmail == "" {
+			targetEmail = "guest@boko.com"
+		}
+		var user models.User
+		if err := config.DB.Where("email = ?", targetEmail).First(&user).Error; err != nil {
+			name := input.CustomerName
+			if name == "" {
+				name = "Khách mua hàng"
+			}
+			user = models.User{
+				Email: targetEmail,
+				Name:  name,
+				Role:  "customer",
+			}
+			config.DB.Create(&user)
+		}
+		currentUserID = user.ID
+	}
+
+	// Tạo đơn hàng COD
+	// Trạng thái đơn: "shipping" (vì 3 bước đầu: Đã đặt đơn, Đã đóng gói, Đang giao hàng đã hoàn thành)
+	// Trạng thái thanh toán: "unpaid" (vì nhận hàng mới trả tiền mặt)
+	order := models.Order{
+		UserID:          currentUserID,
+		Total:           input.Amount,
+		Status:          "shipping",
+		PaymentStatus:   "unpaid",
+		PaymentMethod:   "cod",
+		ShippingAddress: input.ShippingAddress,
+		Phone:           input.Phone,
+		CouponCode:      input.CouponCode,
+		CreatedAt:       time.Now(),
+	}
+
+	if err := config.DB.Create(&order).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo đơn hàng: " + err.Error()})
+		return
+	}
+
+	// Tạo OrderItems nếu có
+	for _, it := range input.Items {
+		orderItem := models.OrderItem{
+			OrderID:  order.ID,
+			BookID:   it.BookID,
+			Title:    it.Title,
+			Price:    it.Price,
+			Quantity: it.Quantity,
+		}
+		config.DB.Create(&orderItem)
+	}
+
+	// Preload items trả về
+	config.DB.Preload("Items").First(&order, order.ID)
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":        "Đặt hàng COD thành công!",
+		"order_id":       order.ID,
+		"order":          order,
+		"total":          order.Total,
+		"status":         order.Status,
+		"payment_method": order.PaymentMethod,
+		"payment_status": order.PaymentStatus,
+	})
+}
+
+// ConfirmReceiptOrder — Người mua xác nhận đã nhận hàng COD thành công
+func ConfirmReceiptOrder(c *gin.Context) {
+	orderID := c.Param("id")
+	var order models.Order
+	if err := config.DB.Preload("Items").First(&order, orderID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy đơn hàng"})
+		return
+	}
+
+	// Cập nhật trạng thái hoàn thành và đã thanh toán
+	order.Status = "completed"
+	if order.PaymentMethod == "cod" || order.PaymentStatus != "paid" {
+		order.PaymentStatus = "paid"
+	}
+	config.DB.Save(&order)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "Xác nhận nhận hàng thành công!",
+		"order":          order,
+		"status":         order.Status,
+		"payment_status": order.PaymentStatus,
+	})
 }
 
 // GetOrderDetail — chi tiết 1 đơn hàng

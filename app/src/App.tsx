@@ -16,7 +16,6 @@ import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { UserSettingsModal, SettingsTab } from './components/UserSettingsModal';
 import { LoginPage } from './pages/LoginPage';
 import { PaypalCallback } from './pages/PaypalCallback';
-import { PaymentCallback } from './pages/PaymentCallback';
 import { MomoCallback } from './pages/MomoCallback';
 import { VnpayCallback } from './pages/VnpayCallback';
 import { RequireAuth } from './components/RequireAuth';
@@ -403,18 +402,6 @@ export default function App() {
           }
         />
 
-        {/* Payment Callback Route for PayPal (public, PayPal redirect về sau khi duyệt) */}
-        <Route
-          path="/payment/paypal-callback"
-          element={
-            <PaypalCallback
-              onOrderSuccessFinished={() => {
-                setCart([]);
-              }}
-            />
-          }
-        />
-
         {/* Catch-all fallback Route -> If user not logged in, show RequireAuth; else redirect to / */}
         <Route
           path="*"
@@ -484,6 +471,10 @@ export default function App() {
           setIsOrderSuccessOpen(false);
           navigate('/');
           window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenOrders={() => {
+          setIsOrderSuccessOpen(false);
+          handleOpenSettings('orders');
         }}
       />
 

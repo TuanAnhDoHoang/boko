@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CartItem, CheckoutFormState, Currency, Order, User, ShippingAddress } from '../types';
 import { createMomoPaymentApi, createVnpayPaymentApi, createPaypalPaymentApi } from '../api/payment';
+import { createCodOrderApi } from '../api/order';
 
 // PayPal không hỗ trợ VND → backend quy đổi sang USD (VNDPerUSD bên service)
 const VND_PER_USD = 25000;
@@ -319,8 +320,39 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
       }
     }
 
+    let createdDbId: number | undefined;
+    const orderStatus: 'shipping' | 'pending' = 'shipping';
+    const paymentStatus: 'unpaid' | 'paid' = 'unpaid';
+
+    if (formData.paymentMethod === 'cod') {
+      try {
+        const fullAddress = `${formData.streetAddress || formData.address || ''}, ${formData.ward || ''}, ${formData.province || ''}`.trim();
+        const codRes = await createCodOrderApi({
+          amount: Math.round(totalVND),
+          shippingAddress: fullAddress || 'Địa chỉ nhận sách Boko',
+          phone: formData.telephone,
+          email: formData.email,
+          customerName: `${formData.firstName} ${formData.lastName}`.trim(),
+          couponCode: appliedDiscountCode || '',
+          items: displayItems.map((item) => ({
+            book_id: typeof item.book.id === 'number' ? item.book.id : 1,
+            title: item.book.title,
+            price: item.book.priceVND,
+            quantity: item.quantity,
+          })),
+        });
+
+        if (codRes && codRes.order_id) {
+          createdDbId = codRes.order_id;
+        }
+      } catch (err) {
+        console.warn('Lỗi lưu đơn COD vào backend, tiếp tục lưu local:', err);
+      }
+    }
+
     const newOrder: Order = {
-      id: `BST-${Math.floor(100000 + Math.random() * 900000)}`,
+      id: createdDbId ? `BST-${createdDbId}` : `BST-${Math.floor(100000 + Math.random() * 900000)}`,
+      dbId: createdDbId,
       date: new Date().toLocaleDateString('vi-VN'),
       items: displayItems,
       customer: formData,
@@ -335,8 +367,23 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
       totalEUR,
       totalVND,
       currency,
-      discountCode: appliedDiscountCode || undefined
+      discountCode: appliedDiscountCode || undefined,
+      status: orderStatus,
+      paymentStatus: paymentStatus,
+      paymentMethod: formData.paymentMethod,
+      shippingAddress: `${formData.streetAddress || formData.address || ''}, ${formData.ward || ''}, ${formData.province || ''}`.trim(),
+      phone: formData.telephone,
     };
+
+    // Lưu vào localStorage danh sách boko_orders để đồng bộ tức thì
+    try {
+      const saved = localStorage.getItem('boko_orders');
+      const existingList = saved ? JSON.parse(saved) : [];
+      const updatedList = [newOrder, ...existingList.filter((o: any) => o.id !== newOrder.id)];
+      localStorage.setItem('boko_orders', JSON.stringify(updatedList));
+    } catch (e) {
+      console.error(e);
+    }
 
     onOrderPlaced(newOrder);
   };

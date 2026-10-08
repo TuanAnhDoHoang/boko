@@ -47,7 +47,7 @@ function getAuthToken(): string {
 
 function getBaseUrl(): string {
   const configured = getBackendBaseUrl();
-  return configured || 'http://localhost:8080';
+  return configured || 'http://localhost:8200';
 }
 
 function authHeaders(): Record<string, string> {

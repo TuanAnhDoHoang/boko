@@ -12,7 +12,7 @@ interface HeaderProps {
   user: User | null;
   onOpenAuth?: () => void;
   onLogout: () => void;
-  onOpenSettings?: (tab?: 'profile' | 'address' | 'payments') => void;
+  onOpenSettings?: (tab?: 'profile' | 'orders' | 'address' | 'payments') => void;
   onOpenProfile?: () => void;
 }
 
@@ -43,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleOpenSettingTab = (tab: 'profile' | 'address' | 'payments') => {
+  const handleOpenSettingTab = (tab: 'profile' | 'orders' | 'address' | 'payments') => {
     setIsUserMenuOpen(false);
     if (onOpenSettings) {
       onOpenSettings(tab);
@@ -206,6 +206,19 @@ export const Header: React.FC<HeaderProps> = ({
                       <div className="flex-1">
                         <span className="font-bold block">Cài đặt</span>
                         <span className="text-[10px] text-slate-400 block font-normal">Thông tin cá nhân & tài khoản</span>
+                      </div>
+                      <i className="fa-solid fa-chevron-right text-[10px] text-slate-400"></i>
+                    </button>
+
+                    {/* Đơn hàng của tôi */}
+                    <button
+                      onClick={() => handleOpenSettingTab('orders')}
+                      className="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-950 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                    >
+                      <i className="fa-solid fa-box-archive text-sm text-blue-600 group-hover:text-blue-800 w-4 text-center"></i>
+                      <div className="flex-1">
+                        <span className="font-bold block text-slate-900">Đơn hàng của tôi</span>
+                        <span className="text-[10px] text-slate-400 block font-normal">Tiến trình vận chuyển & nhận hàng</span>
                       </div>
                       <i className="fa-solid fa-chevron-right text-[10px] text-slate-400"></i>
                     </button>
