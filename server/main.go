@@ -62,6 +62,19 @@ func seedData() {
 		})
 	}
 
+	// Tạo tài khoản thử nghiệm khách hàng test@gmail.com nếu chưa có
+	var testCount int64
+	config.DB.Model(&models.User{}).Where("email = ?", "test@gmail.com").Count(&testCount)
+	if testCount == 0 {
+		hashed, _ := bcrypt.GenerateFromPassword([]byte("testpass"), bcrypt.DefaultCost)
+		config.DB.Create(&models.User{
+			Email:    "test@gmail.com",
+			Password: string(hashed),
+			Name:     "test_user",
+			Role:     "customer",
+		})
+	}
+
 	// Tạo danh mục mẫu
 	config.DB.Model(&models.Category{}).Count(&count)
 	if count == 0 {

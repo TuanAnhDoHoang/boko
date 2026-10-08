@@ -379,7 +379,11 @@ export function getStoredAuthUser(): User | null {
  */
 export function getStoredAuthToken(): string | null {
   try {
-    return localStorage.getItem(STORAGE_AUTH_TOKEN_KEY);
+    const token = localStorage.getItem(STORAGE_AUTH_TOKEN_KEY);
+    if (!token || token.startsWith('mock-token-')) {
+      return null;
+    }
+    return token;
   } catch {
     return null;
   }
