@@ -48,6 +48,12 @@ func SetupRoutes(r *gin.Engine) {
 	r.GET("/api/payment/vnpay/status/:id", middleware.AuthOptional, controllers.GetVnPayPaymentStatus)
 	r.POST("/api/payment/vnpay/create", middleware.AuthOptional, controllers.CreateVnPayPayment)
 
+	// PayPal Payment Routes — cùng cấu trúc với MoMo/VNPay
+	r.POST("/api/payment/paypal/mock-capture/:id", controllers.MockPaypalCapture)
+	r.GET("/api/payment/paypal/status/:id", middleware.AuthOptional, controllers.GetPaypalPaymentStatus)
+	r.POST("/api/payment/paypal/create", middleware.AuthOptional, controllers.CreatePaypalPayment)
+	r.POST("/api/payment/paypal/capture", middleware.AuthOptional, controllers.CapturePaypalPayment)
+
 	// ==================== PROTECTED ROUTES ====================
 
 	auth := r.Group("/api")

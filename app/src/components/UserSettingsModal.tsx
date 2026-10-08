@@ -57,7 +57,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   // Tab 3: Payment Methods
   const [paymentMethods, setPaymentMethods] = useState<SavedPaymentMethod[]>([]);
   const [showAddPaymentForm, setShowAddPaymentForm] = useState(false);
-  const [newPaymentType, setNewPaymentType] = useState<'card' | 'momo' | 'zalopay' | 'bank'>('card');
+  const [newPaymentType, setNewPaymentType] = useState<'card' | 'momo' | 'zalopay' | 'bank' | 'atm'>('card');
   const [cardHolder, setCardHolder] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -178,6 +178,27 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
         accountHolder: cardHolder.toUpperCase().trim(),
         providerName: cleanNum.startsWith('4') ? 'Visa' : 'Mastercard',
         cardExpiry: cardExpiry || '12/28',
+        isDefault: isDefaultMethod || paymentMethods.length === 0
+      };
+    } else if (newPaymentType === 'atm') {
+      const cleanNum = cardNumber.replace(/\s+/g, '');
+      if (cleanNum.length < 12) {
+        showToast('Số thẻ ATM không hợp lệ (tối thiểu 12 số).');
+        return;
+      }
+      if (!cardHolder.trim()) {
+        showToast('Vui lòng nhập tên chủ thẻ.');
+        return;
+      }
+      const last4 = cleanNum.slice(-4);
+      newMethod = {
+        id: `pm-atm-${Date.now()}`,
+        type: 'atm',
+        label: `Thẻ ATM ${selectedBank} •••• ${last4}`,
+        accountNumber: `•••• •••• •••• ${last4}`,
+        accountHolder: cardHolder.toUpperCase().trim(),
+        bankName: selectedBank,
+        providerName: selectedBank,
         isDefault: isDefaultMethod || paymentMethods.length === 0
       };
     } else if (newPaymentType === 'momo') {
@@ -664,7 +685,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                     <label className="block text-xs font-bold text-slate-700 mb-2">
                       Chọn Loại Phương Thức Thanh Toán:
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                       <button
                         type="button"
                         onClick={() => setNewPaymentType('card')}
@@ -676,6 +697,19 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                       >
                         <i className="fa-solid fa-credit-card text-lg"></i>
                         <span>Thẻ Tín Dụng / Visa</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setNewPaymentType('atm')}
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-xs font-bold cursor-pointer ${
+                          newPaymentType === 'atm'
+                            ? 'bg-teal-700 text-white border-teal-700 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <i className="fa-solid fa-building-columns text-lg"></i>
+                        <span>Thẻ ATM Nội Địa</span>
                       </button>
 
                       <button
@@ -766,6 +800,56 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                             className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
                           />
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {newPaymentType === 'atm' && (
+                    <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Chọn Ngân Hàng Phát Hành <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={selectedBank}
+                          onChange={(e) => setSelectedBank(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-body text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/30 cursor-pointer"
+                        >
+                          {VIETNAM_BANKS.map((b) => (
+                            <option key={b.id} value={b.name}>
+                              {b.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Số Thẻ ATM (in trên thẻ) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={cardNumber}
+                          onChange={(e) => setCardNumber(e.target.value)}
+                          placeholder="9704 1234 5678 9012"
+                          maxLength={23}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Tên Chủ Thẻ (Không dấu) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={cardHolder}
+                          onChange={(e) => setCardHolder(e.target.value)}
+                          placeholder="NGUYEN VAN A"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-body uppercase text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+                        />
                       </div>
                     </div>
                   )}
@@ -931,13 +1015,15 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                               ? 'bg-blue-500'
                               : method.type === 'bank'
                               ? 'bg-emerald-700'
+                              : method.type === 'atm'
+                              ? 'bg-teal-700'
                               : 'bg-slate-900'
                           }`}
                         >
                           <i className={`fa-solid ${
                             method.type === 'card'
                               ? 'fa-credit-card'
-                              : method.type === 'bank'
+                              : method.type === 'bank' || method.type === 'atm'
                               ? 'fa-building-columns'
                               : 'fa-wallet'
                           } text-xl`}></i>

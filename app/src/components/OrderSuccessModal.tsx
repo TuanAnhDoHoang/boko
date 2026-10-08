@@ -55,6 +55,10 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
               ? 'Thanh toán khi nhận hàng (COD)'
               : order.customer.paymentMethod === 'card'
               ? 'Thẻ Tín Dụng / Ghi Nợ'
+              : order.customer.paymentMethod === 'atm'
+              ? 'Thẻ ATM Nội Địa (Napas)'
+              : order.customer.paymentMethod === 'paypal'
+              ? 'PayPal (thanh toán quốc tế)'
               : order.customer.paymentMethod === 'ewallet'
               ? 'Ví Điện Tử (Momo / ZaloPay)'
               : 'Chuyển Khoản Ngân Hàng'}
