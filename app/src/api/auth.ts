@@ -37,6 +37,7 @@ export interface SignupData {
   name: string;
   email: string;
   password: string;
+  phone?: string;
 }
 
 export interface AuthResponse {
@@ -231,6 +232,7 @@ export async function signupApi(data: SignupData): Promise<AuthResponse> {
       email: trimmedEmail,
       password: trimmedPassword,
       username: trimmedEmail.split('@')[0],
+      phone: data.phone?.trim() || undefined,
     });
 
     if (serverResult.success && serverResult.user) {
@@ -268,6 +270,7 @@ export async function signupApi(data: SignupData): Promise<AuthResponse> {
     id: `user-${Date.now()}`,
     name: trimmedName,
     email: trimmedEmail,
+    phone: data.phone?.trim() || undefined,
     avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200`,
     provider: 'email',
     memberSince: new Date().toLocaleDateString('vi-VN'),
@@ -379,7 +382,11 @@ export function getStoredAuthUser(): User | null {
  */
 export function getStoredAuthToken(): string | null {
   try {
-    return localStorage.getItem(STORAGE_AUTH_TOKEN_KEY);
+    const token = localStorage.getItem(STORAGE_AUTH_TOKEN_KEY);
+    if (!token || token.startsWith('mock-token-')) {
+      return null;
+    }
+    return token;
   } catch {
     return null;
   }

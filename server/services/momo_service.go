@@ -24,7 +24,7 @@ func CreateHmacSha256(rawString, secretKey string) string {
 }
 
 // CreateMomoPaymentUrl — tạo link thanh toán MoMo cho một đơn hàng
-func CreateMomoPaymentUrl(order *models.Order, customRedirectURL string) (*payments.MomoCreatePaymentResponse, error) {
+func CreateMomoPaymentUrl(order *models.Order, customRedirectURL string, customRequestType ...string) (*payments.MomoCreatePaymentResponse, error) {
 	cfg := payments.GetMomoConfig()
 
 	// Đảm bảo số tiền hợp lệ (MoMo yêu cầu VND là số nguyên >= 1000)
@@ -39,6 +39,9 @@ func CreateMomoPaymentUrl(order *models.Order, customRedirectURL string) (*payme
 	orderInfo := fmt.Sprintf("Thanh toan don hang Boko #%d", order.ID)
 	extraData := ""
 	requestType := "captureWallet"
+	if len(customRequestType) > 0 && customRequestType[0] != "" {
+		requestType = customRequestType[0]
+	}
 
 	redirectURL := cfg.RedirectURL
 	if customRedirectURL != "" {

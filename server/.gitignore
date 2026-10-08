@@ -1,6 +1,31 @@
 # Binaries
 *.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
 *.out
+bin/
+build/
+dist/
+coverage/
+coverage.out
+__debug_bin
+
+# Go build/cache
+/vendor/
+/tmp/
+*.tmp
+*.log
+.go-version
+.gocache/
+.gopath/
+
+# Environment
+.env
+.env.*
+!.env.example
 
 # IDE
 .vscode/
@@ -12,3 +37,10 @@ Thumbs.db
 
 # Docker
 __debug_bin
+
+# Test files
+*_test.go
+
+.env
+*.local
+

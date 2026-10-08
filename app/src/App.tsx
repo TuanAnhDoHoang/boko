@@ -15,8 +15,28 @@ import { UsedBooksMarketView } from './components/UsedBooksMarketView';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { UserSettingsModal, SettingsTab } from './components/UserSettingsModal';
 import { LoginPage } from './pages/LoginPage';
+import { MomoCallback } from './pages/MomoCallback';
+import { VnpayCallback } from './pages/VnpayCallback';
 import { RequireAuth } from './components/RequireAuth';
-import { getStoredAuthUser, logoutApi } from './api/auth';
+import { getStoredAuthUser, getStoredAuthToken, logoutApi, serverUpdateProfile } from './api/auth';
+import { isBackendConfigured } from './api/client';
+import { fetchBooksIfConfigured } from './api/books';
+import { fetchCartIfConfigured, addToCartSafe, updateCartItemSafe, removeFromCartSafe } from './api/cart';
+import { createOrderSafe } from './api/orders';
+import { validateCouponCode } from './api/coupons';
+
+const normalizeCategoryName = (name?: string): string => {
+  const value = (name || '').trim().toLowerCase();
+
+  if (!value) return 'LITERATURE';
+  if (value.includes('trinh') || value.includes('detective') || value.includes('mystery')) return 'MYSTERY';
+  if (value.includes('van') || value.includes('literature') || value.includes('story') || value.includes('ngon')) return 'LITERATURE';
+  if (value.includes('lich') || value.includes('history')) return 'HISTORY';
+  if (value.includes('khoa') || value.includes('science') || value.includes('tech') || value.includes('it')) return 'SCIENCE';
+  if (value.includes('nghe') || value.includes('art')) return 'ART';
+
+  return 'LITERATURE';
+};
 
 export default function App() {
   const navigate = useNavigate();
@@ -182,12 +202,26 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleUpdateUser = (updatedUser: User) => {
+  const handleUpdateUser = async (updatedUser: User) => {
     setUser(updatedUser);
     try {
       localStorage.setItem('boko_user', JSON.stringify(updatedUser));
     } catch (e) {
       console.error(e);
+    }
+
+    if (!isBackendConfigured()) return;
+
+    const token = getStoredAuthToken();
+    if (!token) return;
+
+    try {
+      const response = await serverUpdateProfile(updatedUser, token);
+      if (!response.success) {
+        console.warn('Profile update failed on backend:', response.error);
+      }
+    } catch (error) {
+      console.warn('Could not sync profile update to backend:', error);
     }
   };
 
@@ -334,6 +368,30 @@ export default function App() {
                 }}
               />
             </RequireAuth>
+          }
+        />
+
+        {/* Payment Callback Route for MoMo Sandbox */}
+        <Route
+          path="/payment/momo-callback"
+          element={
+            <MomoCallback
+              onOrderSuccessFinished={() => {
+                setCart([]);
+              }}
+            />
+          }
+        />
+
+        {/* Payment Callback Route for VNPAY Sandbox */}
+        <Route
+          path="/payment/vnpay-callback"
+          element={
+            <VnpayCallback
+              onOrderSuccessFinished={() => {
+                setCart([]);
+              }}
+            />
           }
         />
 

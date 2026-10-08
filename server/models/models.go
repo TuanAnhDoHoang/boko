@@ -8,6 +8,7 @@ type User struct {
 	Email     string    `json:"email" gorm:"uniqueIndex;not null"`
 	Password  string    `json:"-" gorm:"not null"` // không trả password trong JSON
 	Name      string    `json:"name" gorm:"not null"`
+	Phone     string    `json:"phone,omitempty" gorm:"default:''"` // số điện thoại đã mã hóa AES khi lưu vào DB
 	Role      string    `json:"role" gorm:"default:customer"` // customer | seller | admin
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

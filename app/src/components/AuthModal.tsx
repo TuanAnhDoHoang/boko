@@ -23,6 +23,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Form fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
@@ -92,7 +93,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const res = await signupApi({
           name: name.trim(),
           email: email.trim(),
-          password
+          password,
+          phone: phone.trim(),
         });
 
         setIsLoading(false);
@@ -264,6 +266,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-white/90 border border-slate-200/90 text-slate-900 text-xs placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700/40 focus:border-amber-700 shadow-2xs transition-all"
             />
           </div>
+
+          {mode === 'signup' && (
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider font-bold text-slate-600 mb-0.5">
+                SỐ ĐIỆN THOẠI
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0987654321"
+                className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-white/90 border border-slate-200/90 text-slate-900 text-xs placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700/40 focus:border-amber-700 shadow-2xs transition-all"
+              />
+            </div>
+          )}
 
           {/* Password (Login and Signup) */}
           {mode !== 'forgot' && (

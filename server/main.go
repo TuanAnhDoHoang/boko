@@ -1,11 +1,14 @@
 package main
 
 import (
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 
 	"boko/config"
+	pmiddleware "boko/payments/middleware"
 	"boko/models"
 	"boko/routes"
 )
@@ -28,6 +31,10 @@ func main() {
 
 	// Tạo router Gin
 	r := gin.Default()
+	r.Use(pmiddleware.NewRedactingLogger())
+	r.Use(pmiddleware.RateLimitMiddleware(120, 1*time.Minute, func(c *gin.Context) string {
+		return c.ClientIP()
+	}))
 
 	// CORS — cho phép React frontend (localhost:3000)
 	r.Use(cors.New(cors.Config{
@@ -59,6 +66,19 @@ func seedData() {
 			Password: string(hashed), // hash đúng của "admin123456"
 			Name:     "Admin Boko",
 			Role:     "admin",
+		})
+	}
+
+	// Tạo tài khoản thử nghiệm khách hàng test@gmail.com nếu chưa có
+	var testCount int64
+	config.DB.Model(&models.User{}).Where("email = ?", "test@gmail.com").Count(&testCount)
+	if testCount == 0 {
+		hashed, _ := bcrypt.GenerateFromPassword([]byte("testpass"), bcrypt.DefaultCost)
+		config.DB.Create(&models.User{
+			Email:    "test@gmail.com",
+			Password: string(hashed),
+			Name:     "test_user",
+			Role:     "customer",
 		})
 	}
 

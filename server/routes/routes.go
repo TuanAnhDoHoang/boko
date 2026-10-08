@@ -27,6 +27,11 @@ func SetupRoutes(r *gin.Engine) {
 	r.GET("/api/books", controllers.GetBooks)
 	r.GET("/api/books/:id", controllers.GetBook)
 
+	// Payment module
+	r.POST("/api/payments/intent", controllers.CreatePaymentIntent)
+	r.POST("/api/payments/save-card", controllers.SaveCard)
+	r.POST("/api/payments/webhook", controllers.HandlePaymentWebhook)
+
 	// Categories (public)
 	r.GET("/api/categories", controllers.GetCategories)
 	r.GET("/api/categories/:id", controllers.GetCategory)
@@ -34,9 +39,19 @@ func SetupRoutes(r *gin.Engine) {
 	// Reviews (public)
 	r.GET("/api/books/:id/reviews", controllers.GetBookReviews)
 
-	// Payments Webhook (public cho MoMo Sandbox Gateway gọi vào)
+	// Payments Webhook & Status (public cho MoMo Gateway và trang Callback)
 	r.POST("/api/payment/momo/ipn", controllers.MomoIPN)
 	r.POST("/api/payment/momo/mock-ipn/:id", controllers.MockMomoIPN)
+	r.POST("/api/payment/momo/simulator-ipn", controllers.MomoSimulatorIPN)
+	r.GET("/api/payment/momo/status/:id", middleware.AuthOptional, controllers.GetPaymentStatus)
+
+	// Payments Create (hỗ trợ cả người dùng đăng nhập và khách)
+	r.POST("/api/payment/momo/create", middleware.AuthOptional, controllers.CreateMomoPayment)
+
+	// VNPAY Payment Routes
+	r.GET("/api/payment/vnpay/ipn", controllers.VnPayIPN)
+	r.GET("/api/payment/vnpay/status/:id", middleware.AuthOptional, controllers.GetVnPayPaymentStatus)
+	r.POST("/api/payment/vnpay/create", middleware.AuthOptional, controllers.CreateVnPayPayment)
 
 	// ==================== PROTECTED ROUTES ====================
 
@@ -46,8 +61,8 @@ func SetupRoutes(r *gin.Engine) {
 		// Profile — frontend tương thích
 		auth.GET("/profile", controllers.GetProfile)
 		auth.PUT("/profile", controllers.UpdateProfile)
-		auth.GET("/auth/me", controllers.GetProfile)          // alias frontend
-		auth.PUT("/auth/profile", controllers.UpdateProfile)  // alias frontend
+		auth.GET("/auth/me", controllers.GetProfile)         // alias frontend
+		auth.PUT("/auth/profile", controllers.UpdateProfile) // alias frontend
 
 		// Books (seller)
 		auth.POST("/books", middleware.SellerRequired, controllers.CreateBook)
@@ -70,10 +85,6 @@ func SetupRoutes(r *gin.Engine) {
 		auth.GET("/orders", controllers.GetMyOrders)
 		auth.GET("/orders/:id", controllers.GetOrderDetail)
 		auth.PUT("/orders/:id/cancel", controllers.CancelOrder)
-
-		// Payments (user)
-		auth.POST("/payment/momo/create", controllers.CreateMomoPayment)
-		auth.GET("/payment/momo/status/:id", controllers.GetPaymentStatus)
 
 		// Reviews
 		auth.POST("/books/:id/reviews", controllers.CreateReview)
