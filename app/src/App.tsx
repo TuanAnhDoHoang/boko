@@ -15,7 +15,7 @@ import { UsedBooksMarketView } from './components/UsedBooksMarketView';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { UserSettingsModal, SettingsTab } from './components/UserSettingsModal';
 import { LoginPage } from './pages/LoginPage';
-import { PaymentCallback } from './pages/PaymentCallback';
+import { MomoCallback } from './pages/MomoCallback';
 import { VnpayCallback } from './pages/VnpayCallback';
 import { RequireAuth } from './components/RequireAuth';
 import { getStoredAuthUser, logoutApi } from './api/auth';
@@ -343,7 +343,7 @@ export default function App() {
         <Route
           path="/payment/momo-callback"
           element={
-            <PaymentCallback
+            <MomoCallback
               onOrderSuccessFinished={() => {
                 setCart([]);
               }}

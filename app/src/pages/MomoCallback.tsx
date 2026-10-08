@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { getPaymentStatusApi, PaymentStatusResponse } from '../api/payment';
 
-interface PaymentCallbackProps {
+interface MomoCallbackProps {
   onOrderSuccessFinished?: () => void;
 }
 
-export const PaymentCallback: React.FC<PaymentCallbackProps> = ({ onOrderSuccessFinished }) => {
+export const MomoCallback: React.FC<MomoCallbackProps> = ({ onOrderSuccessFinished }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -159,7 +159,6 @@ export const PaymentCallback: React.FC<PaymentCallbackProps> = ({ onOrderSuccess
 
           {/* Action Buttons */}
           <div className="pt-2 space-y-2.5">
-
             <button
               onClick={() => navigate('/')}
               className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-slate-900 text-white hover:bg-slate-800 active:scale-[0.99] transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
