@@ -10,4 +10,5 @@ services:
       - "3000:80" # Truy cập ở máy host qua port 3000. Cổng 80 là nội bộ của Nginx.
     restart: unless-stopped
     environment:
+      - .env
       - NODE_ENV=production

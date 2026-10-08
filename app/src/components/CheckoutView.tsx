@@ -11,7 +11,7 @@ interface CheckoutViewProps {
   onReturnToCart: () => void;
   onOrderPlaced: (order: Order) => void;
   appliedDiscountCode: string;
-  onApplyDiscountCode: (code: string) => boolean;
+  onApplyDiscountCode: (code: string) => boolean | Promise<boolean>;
   user?: User | null;
   onOpenSettings?: (tab?: 'profile' | 'address' | 'payments') => void;
   onOpenProfile?: () => void;
@@ -156,11 +156,11 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleApplyDiscount = (e: React.FormEvent) => {
+  const handleApplyDiscount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!discountInput.trim()) return;
 
-    const success = onApplyDiscountCode(discountInput.trim());
+    const success = await onApplyDiscountCode(discountInput.trim());
     if (success) {
       setDiscountMessage({ text: `Đã áp dụng mã "${discountInput.trim().toUpperCase()}"`, isError: false });
       setDiscountInput('');
@@ -263,32 +263,6 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
       } catch (err: any) {
         setIsSubmittingVnpay(false);
         setFormErrors([err.message || 'Không thể tạo phiên thanh toán VNPAY Sandbox. Vui lòng kiểm tra lại.']);
-        return;
-      }
-    }
-
-    // Nếu chọn thanh toán qua PayPal -> Tạo đơn PayPal rồi chuyển hướng sang PayPal duyệt.
-    // PayPal duyệt xong redirect về /payment/paypal-callback để xác nhận và lưu đơn.
-    if (formData.paymentMethod === 'paypal') {
-      setIsSubmittingPaypal(true);
-      try {
-        const res = await createPaypalPaymentApi({
-          amount: Math.round(totalVND),
-          shippingAddress: buildShippingAddress() || 'Địa chỉ nhận sách Boko',
-          phone: formData.telephone,
-          email: formData.email,
-          redirectUrl: `${window.location.origin}/payment/paypal-callback`,
-        });
-
-        if (res && res.approve_url) {
-          window.location.href = res.approve_url;
-          return;
-        } else {
-          throw new Error('Không nhận được link duyệt PayPal.');
-        }
-      } catch (err: unknown) {
-        setIsSubmittingPaypal(false);
-        setFormErrors([(err as Error)?.message || 'Không thể tạo phiên thanh toán PayPal. Vui lòng kiểm tra lại.']);
         return;
       }
     }

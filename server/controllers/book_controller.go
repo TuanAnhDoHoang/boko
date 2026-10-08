@@ -62,10 +62,10 @@ func GetBooks(c *gin.Context) {
 	query.Offset(offset).Limit(limit).Find(&books)
 
 	c.JSON(http.StatusOK, gin.H{
-		"data":       books,
-		"total":      total,
-		"page":       page,
-		"limit":      limit,
+		"data":        books,
+		"total":       total,
+		"page":        page,
+		"limit":       limit,
 		"total_pages": (total + int64(limit) - 1) / int64(limit),
 	})
 }

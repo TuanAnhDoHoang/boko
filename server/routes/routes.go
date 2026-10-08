@@ -27,11 +27,6 @@ func SetupRoutes(r *gin.Engine) {
 	r.GET("/api/books", controllers.GetBooks)
 	r.GET("/api/books/:id", controllers.GetBook)
 
-	// Payment module
-	r.POST("/api/payments/intent", controllers.CreatePaymentIntent)
-	r.POST("/api/payments/save-card", controllers.SaveCard)
-	r.POST("/api/payments/webhook", controllers.HandlePaymentWebhook)
-
 	// Categories (public)
 	r.GET("/api/categories", controllers.GetCategories)
 	r.GET("/api/categories/:id", controllers.GetCategory)

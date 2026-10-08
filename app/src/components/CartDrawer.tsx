@@ -10,7 +10,7 @@ interface CartDrawerProps {
   onProceedToCheckout: () => void;
   currency: Currency;
   appliedDiscountCode: string;
-  onApplyDiscountCode: (code: string) => boolean;
+  onApplyDiscountCode: (code: string) => boolean | Promise<boolean>;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -48,11 +48,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const totalEUR = Math.max(0, subtotalEUR - discountEUR + vatEUR + shippingEUR);
   const totalVND = Math.max(0, subtotalVND - discountVND + vatVND + shippingVND);
 
-  const handleApplyCoupon = (e: React.FormEvent) => {
+  const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!couponInput.trim()) return;
 
-    const success = onApplyDiscountCode(couponInput.trim());
+    const success = await onApplyDiscountCode(couponInput.trim());
     if (success) {
       setCouponMessage({ text: `Đã áp dụng mã "${couponInput.trim().toUpperCase()}"!`, isError: false });
       setCouponInput('');

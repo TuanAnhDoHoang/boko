@@ -1,12 +1,12 @@
 import { Book } from '../types';
 
 const RAW_BOOKS_DATA: Book[] = [
-  // TRINH THÁM (Detective / Mystery)
+  // Mystery (Detective / Mystery)
   {
     id: 'tt-1',
     title: 'Bóng Tối Phố Baker',
     author: 'Arthur Conan Doyle',
-    category: 'TRINH THÁM',
+    category: 'Mystery',
     priceEUR: 24.00,
     priceVND: 240000,
     coverUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDCfxWh0sp0lzL_jUmX_W2r3Nmbq37cAx5PzRnz64HkSP-U5MbCrwaq1CzftUcLDX8uT0T9-F84I8Pm79RJn8TtpXz73_w_pD8n2rHX9YrDMqo4pYPOez0E12EGfwy1bcbAVsdhfZeAd79MoLJt-tslWZ4JXnQbwdLSk8cUTZF0SuV8LBWbJBAoiB17fRKs7TN3GxrOriyCgtVIx4kWlgz7i7Hq49Y82n0orgkLFUWXlG3SuAXnqvRR5A',
@@ -34,7 +34,7 @@ const RAW_BOOKS_DATA: Book[] = [
     id: 'tt-2',
     title: 'Vết Cắt',
     author: 'Phạm Gia Bảo',
-    category: 'TRINH THÁM',
+    category: 'Mystery',
     priceEUR: 22.50,
     priceVND: 225000,
     coverUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuChDYT25hMiy2FpGIsbsGfjKFL7ZVQwdl8wYTXz0x2XbekBq8w0tcUmJ-WSoASDTKmqXN0ZtJvvu_T9bSkb_Wv3xcwg4qCJCJJf73cFbpDfYmit78I1Y6XPsd9num7wWNXrzP-Q-6M8_8TOBvfIHsG6xq_txUl4gD0jYGv0roVzBCNaNKMoxO6VCS-Xx5dJsOhClUGDFPlZRuOL1MIKIzi52qNnDdIwSPJpZiVRb2H7Pbjqiud-6Q_OtA',
@@ -62,7 +62,7 @@ const RAW_BOOKS_DATA: Book[] = [
     id: 'tt-3',
     title: 'Vực Thẳm Lạnh Lẽo',
     author: 'Hoàng Minh Trạng',
-    category: 'TRINH THÁM',
+    category: 'Mystery',
     priceEUR: 25.00,
     priceVND: 250000,
     coverUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDeoPVHaZVAKEkRGrc5_oWMAk_eYZz2ipZV1AAg52lUCFWVPeIOVHGUH3zE7ZewD8vDLSTgApI3ijH77VYF6mh-Bd0yLQF7ybV0mCUZU3fOcmSA_hvJ1jbLfLScLcqRAvuv5CDWTDGa5WgJl7RdoTjggWNnQOBDXjGuisdH9cWpyG78B4k6BfvarIkDYp6vXaT7JtiXLF1KKgynUnDGqWAltYefwolpF5yFbt5Kt3iYYCxmBR38WVDcnQ',
@@ -90,7 +90,7 @@ const RAW_BOOKS_DATA: Book[] = [
     id: 'tt-4',
     title: 'Bí Ấn Của Chiếc Đồng Hồ Cổ',
     author: 'Agatha Christie',
-    category: 'TRINH THÁM',
+    category: 'Mystery',
     priceEUR: 21.00,
     priceVND: 210000,
     coverUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBPbcE1ztksqe9U7V6M_1YgHrMRmRZs-6BDvuP7nMto_0W-_5R8c1-8xHkOiRD2HB1pZJCzdhskHUyB2rBvsCQoVvsOggBK2APkp_rLBJkbBEAVY7neQO6EVIFIJwp1loKwfSwUXUdZmmTlY9-D2ND7s87rAC65fkq5xHC1pTtvVZ7hHed3Zu5W4aQrKqpaulq4KJFfRgCMoljDsxg2mXq9gqubsWxLErxKcGAWxFV1PO4N0H0VmYpE1A',
@@ -115,12 +115,12 @@ const RAW_BOOKS_DATA: Book[] = [
     }
   },
 
-  // VĂN HỌC (Literature)
+  // Literature (Literature)
   {
     id: 'vh-1',
     title: 'Gió Lạnh Đầu Mùa',
     author: 'Thạch Lam',
-    category: 'VĂN HỌC',
+    category: 'Literature',
     priceEUR: 18.00,
     priceVND: 180000,
     coverUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBMO3iuYigtjk1EySNX3heNHOE43nAMlKZl1WQxOX7Ocd2KhjBz8qoTDeqwAKUje_nx6_ctGsM7G6aDj4WmULyD0uR_Wckuhv8_nl02YMAEWET-hOej0fcrdDYq9IT559QtmN9HBrvKbHHG08EivYCJ_v1G2Y-9iax9CFXUKW-qnA1VE_zVcrQTdZ2P1jkX9t2DPKb6Rl4WiJ9u_7ZHK_D_Z46WMw-An4GYz55WZ7qMcOvsYyE4dvLXZL8cfTp4ctLVj04',
@@ -147,7 +147,7 @@ const RAW_BOOKS_DATA: Book[] = [
     id: 'vh-2',
     title: 'Dưới Bóng Hoa Tàn',
     author: 'Lê Phương Thảo',
-    category: 'VĂN HỌC',
+    category: 'Literature',
     priceEUR: 20.00,
     priceVND: 200000,
     coverUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC-84D2ndfimeOlPT2_LK8a2gWhnnYkWle5ooDMinZVSJCqLcyBg_vgAz4OAQQlX0CtRRvTseVm3oPcr9nHoQ2ObowH8IG403I-N5gAMY9gLwcsCB5orgFQcPnuCtgGJ-380EH0XypVPo9TlQyjD72Z1NWiCOsm5sW0ciu-mhIv3Mo0CLgMMP5Sg96kZ5LUZrgM7dKod2f8lpNUOzpBepmrGf7BFln31m4bANoY-MJEMxEa2NkBMcBj1w',
@@ -174,7 +174,7 @@ const RAW_BOOKS_DATA: Book[] = [
     id: 'vh-3',
     title: 'The Shifting Tides',
     author: 'Eliza Vance',
-    category: 'VĂN HỌC',
+    category: 'Literature',
     priceEUR: 26.00,
     priceVND: 260000,
     coverUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA0OSXgiMKLi6Gw7zLxaKFJt6QyUBql8n9AID4BmbmJXYLFxlRGD5dxeC4Fj1KHAODM4-Yt9yTPSC32te5Ujm60vI40eog1JzGqId7FcWSZb9hm05gCwzaYl-KYdSpEHMuvo4eZe0W372JOmJqzWEdU_74M-rsMtspve6YJWcLR1D5GBzGp3s4v3W_QcHYBcjWYg79mIuRV95Xn2D-hFBITYr9OoSEHheyc9GfHAFzWWG94p3VlmFw-_g',
@@ -203,7 +203,7 @@ const RAW_BOOKS_DATA: Book[] = [
     id: 'camus-1',
     title: "L'Étranger",
     author: 'Albert Camus',
-    category: 'VĂN HỌC',
+    category: 'Literature',
     priceEUR: 24.00,
     priceVND: 240000,
     coverUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAMmrVi1HZtk0j2V8SVSuMmHBIUX0oNAHwkxVKk3q0h3zQQiRNTRbE-5N5Bwuhk8a1Cy0vpDMnZrIpZrx7LYQIj41lhJ6WW0hFpMWUMS-_dCJOMUqDWgl5JD31eyoLktacAZ81q668R300goQc7QRRI-YtcdZfCcQ5ePgjA9GHz0EqyWg0gZxzhJ3CeSbQQ3ZcCkAlYAfDC68av5rURiElgkcov58r30L9Bp6mQZ86SK8AGHMmccC-Z4w',
@@ -227,12 +227,12 @@ const RAW_BOOKS_DATA: Book[] = [
     }
   },
 
-  // LỊCH SỬ (History)
+  // History (History)
   {
     id: 'ls-1',
     title: 'Đại Việt Sử Ký Toàn Thư',
     author: 'Ngô Sĩ Liên',
-    category: 'LỊCH SỬ',
+    category: 'History',
     priceEUR: 32.00,
     priceVND: 320000,
     coverUrl: '',
@@ -259,7 +259,7 @@ const RAW_BOOKS_DATA: Book[] = [
     id: 'ls-2',
     title: 'Sử Ký Tư Mã Thiên',
     author: 'Tư Mã Thiên',
-    category: 'LỊCH SỬ',
+    category: 'History',
     priceEUR: 29.00,
     priceVND: 290000,
     coverUrl: '',
@@ -283,12 +283,12 @@ const RAW_BOOKS_DATA: Book[] = [
     }
   },
 
-  // KHOA HỌC (Science)
+  // Science (Science)
   {
     id: 'kh-1',
     title: 'Vũ Trụ Của Carl Sagan',
     author: 'Carl Sagan',
-    category: 'KHOA HỌC',
+    category: 'Science',
     priceEUR: 28.00,
     priceVND: 280000,
     coverUrl: '',
@@ -312,12 +312,12 @@ const RAW_BOOKS_DATA: Book[] = [
     }
   },
 
-  // NGHỆ THUẬT (Art)
+  // Art (Art)
   {
     id: 'nt-1',
     title: 'Câu Chuyện Nghệ Thuật',
     author: 'E.H. Gombrich',
-    category: 'NGHỆ THUẬT',
+    category: 'Art',
     priceEUR: 35.00,
     priceVND: 350000,
     coverUrl: '',
@@ -344,11 +344,11 @@ const RAW_BOOKS_DATA: Book[] = [
 
 // Curated pool of 10+ extra books per category for "Xem thêm" expand functionality
 const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
-  'TRINH THÁM': [
+  'Mystery': [
     {
       title: 'Án Mạng Trên Chuyến Tàu Tốc Hành Orient',
       author: 'Agatha Christie',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 23.00,
       priceVND: 230000,
       coverUrl: '',
@@ -364,7 +364,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Kẻ Giấu Mặt Trong Đêm',
       author: 'Higashino Keigo',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 24.50,
       priceVND: 245000,
       coverUrl: '',
@@ -380,7 +380,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Mật Mã Da Vinci',
       author: 'Dan Brown',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 26.00,
       priceVND: 260000,
       coverUrl: '',
@@ -396,7 +396,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Sự Im Lặng Của Bầy Cừu',
       author: 'Thomas Harris',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 25.00,
       priceVND: 250000,
       coverUrl: '',
@@ -412,7 +412,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Ánh Mắt Kẻ Sát Nhân',
       author: 'Jo Nesbø',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 22.00,
       priceVND: 220000,
       coverUrl: '',
@@ -428,7 +428,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Tội Lỗi Không Tên',
       author: 'Guillaume Musso',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 21.50,
       priceVND: 215000,
       coverUrl: '',
@@ -444,7 +444,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Ảo Ảnh Phố Cổ',
       author: 'Nguyễn Nhật Ánh',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 19.00,
       priceVND: 190000,
       coverUrl: '',
@@ -460,7 +460,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Bức Thư Bí Mật',
       author: 'Keigo Higashino',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 23.50,
       priceVND: 235000,
       coverUrl: '',
@@ -476,7 +476,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Dấu Ấn Rồng Thiêng',
       author: 'Stieg Larsson',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 27.00,
       priceVND: 270000,
       coverUrl: '',
@@ -492,7 +492,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Mặt Nạ Quỷ',
       author: 'Minato Kanae',
-      category: 'TRINH THÁM',
+      category: 'Mystery',
       priceEUR: 22.00,
       priceVND: 220000,
       coverUrl: '',
@@ -507,11 +507,11 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     }
   ],
 
-  'VĂN HỌC': [
+  'Literature': [
     {
       title: 'Trăm Năm Cô Đơn',
       author: 'Gabriel García Márquez',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 28.00,
       priceVND: 280000,
       coverUrl: '',
@@ -527,7 +527,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Rừng Na Uy',
       author: 'Haruki Murakami',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 24.00,
       priceVND: 240000,
       coverUrl: '',
@@ -543,7 +543,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Hoàng Tử Bé',
       author: 'Antoine de Saint-Exupéry',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 16.00,
       priceVND: 160000,
       coverUrl: '',
@@ -559,7 +559,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Ông Già Và Biển Cả',
       author: 'Ernest Hemingway',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 18.50,
       priceVND: 185000,
       coverUrl: '',
@@ -575,7 +575,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Nhà Giả Kim',
       author: 'Paulo Coelho',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 19.00,
       priceVND: 190000,
       coverUrl: '',
@@ -592,7 +592,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Kiêu Hãnh Và Định Kiến',
       author: 'Jane Austen',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 22.00,
       priceVND: 220000,
       coverUrl: '',
@@ -608,7 +608,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Chiếc Lược Ngà',
       author: 'Nguyễn Quang Sáng',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 17.00,
       priceVND: 170000,
       coverUrl: '',
@@ -624,7 +624,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Số Đỏ',
       author: 'Vũ Trọng Phụng',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 20.00,
       priceVND: 200000,
       coverUrl: '',
@@ -640,7 +640,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Tắt Đèn',
       author: 'Ngô Tất Tố',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 18.00,
       priceVND: 180000,
       coverUrl: '',
@@ -656,7 +656,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Những Người Khốn Khổ',
       author: 'Victor Hugo',
-      category: 'VĂN HỌC',
+      category: 'Literature',
       priceEUR: 32.00,
       priceVND: 320000,
       coverUrl: '',
@@ -671,11 +671,11 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     }
   ],
 
-  'LỊCH SỬ': [
+  'History': [
     {
       title: 'Sapiens: Lược Sử Loài Người',
       author: 'Yuval Noah Harari',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 30.00,
       priceVND: 300000,
       coverUrl: '',
@@ -691,7 +691,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Việt Nam Sử Lược',
       author: 'Trần Trọng Kim',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 26.00,
       priceVND: 260000,
       coverUrl: '',
@@ -707,7 +707,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Súng, Mầm Bệnh Và Thép',
       author: 'Jared Diamond',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 29.00,
       priceVND: 290000,
       coverUrl: '',
@@ -723,7 +723,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Lịch Sử Thế Giới Qua 100 Vật Phẩm',
       author: 'Neil MacGregor',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 31.00,
       priceVND: 310000,
       coverUrl: '',
@@ -739,7 +739,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Sử Bắc Hà',
       author: 'Lê Quý Đôn',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 25.00,
       priceVND: 250000,
       coverUrl: '',
@@ -755,7 +755,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Đông Dương Xưa',
       author: 'Paul Doumer',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 27.50,
       priceVND: 275000,
       coverUrl: '',
@@ -771,7 +771,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Triều Đại Nhà Trần',
       author: 'Nguyễn Lương Bích',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 24.00,
       priceVND: 240000,
       coverUrl: '',
@@ -787,7 +787,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Chiến Quốc C策',
       author: 'Lưu Hướng',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 23.00,
       priceVND: 230000,
       coverUrl: '',
@@ -803,7 +803,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Lịch Sử Văn Minh Văn Lang',
       author: 'Đào Duy Anh',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 22.00,
       priceVND: 220000,
       coverUrl: '',
@@ -819,7 +819,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Lịch Sử Đế Quốc La Mã',
       author: 'Edward Gibbon',
-      category: 'LỊCH SỬ',
+      category: 'History',
       priceEUR: 34.00,
       priceVND: 340000,
       coverUrl: '',
@@ -834,11 +834,11 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     }
   ],
 
-  'KHOA HỌC': [
+  'Science': [
     {
       title: 'Lược Sử Thời Gian',
       author: 'Stephen Hawking',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 25.00,
       priceVND: 250000,
       coverUrl: '',
@@ -854,7 +854,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Gen: Lịch Sử Mật Mã Sự Sống',
       author: 'Siddhartha Mukherjee',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 28.50,
       priceVND: 285000,
       coverUrl: '',
@@ -870,7 +870,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Tư Duy Nhanh Và Chậm',
       author: 'Daniel Kahneman',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 27.00,
       priceVND: 270000,
       coverUrl: '',
@@ -886,7 +886,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Thực Tế Không Như Ta Tưởng',
       author: 'Carlo Rovelli',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 22.00,
       priceVND: 220000,
       coverUrl: '',
@@ -902,7 +902,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Sức Mạnh Của Thói Quen',
       author: 'Charles Duhigg',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 21.00,
       priceVND: 210000,
       coverUrl: '',
@@ -918,7 +918,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Bản Thiết Kế Cuộc Sống',
       author: 'Richard Dawkins',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 26.00,
       priceVND: 260000,
       coverUrl: '',
@@ -934,7 +934,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Vũ Trụ Trong Nhẫn Cỏ',
       author: 'Michio Kaku',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 24.00,
       priceVND: 240000,
       coverUrl: '',
@@ -950,7 +950,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Lịch Sử Tự Nhiên',
       author: 'Pliny the Elder',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 30.00,
       priceVND: 300000,
       coverUrl: '',
@@ -966,7 +966,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Trí Tuệ Nhân Tạo 2026',
       author: 'Max Tegmark',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 26.50,
       priceVND: 265000,
       coverUrl: '',
@@ -982,7 +982,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Mật Mã Sinh Học',
       author: 'Jennifer Doudna',
-      category: 'KHOA HỌC',
+      category: 'Science',
       priceEUR: 25.00,
       priceVND: 250000,
       coverUrl: '',
@@ -997,11 +997,11 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     }
   ],
 
-  'NGHỆ THUẬT': [
+  'Art': [
     {
       title: 'Cách Nhìn Nghệ Thuật',
       author: 'John Berger',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 22.00,
       priceVND: 220000,
       coverUrl: '',
@@ -1017,7 +1017,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Nhật Ký Của Leonardo da Vinci',
       author: 'Walter Isaacson',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 29.00,
       priceVND: 290000,
       coverUrl: '',
@@ -1033,7 +1033,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Bức Tranh Mona Lisa Bí Ẩn',
       author: 'Donald Sassoon',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 24.00,
       priceVND: 240000,
       coverUrl: '',
@@ -1049,7 +1049,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Lịch Sử Kiến Trúc Thế Giới',
       author: 'Banister Fletcher',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 35.00,
       priceVND: 350000,
       coverUrl: '',
@@ -1065,7 +1065,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Nghệ Thuật Nhiếp Ảnh Mới',
       author: 'Henri Cartier-Bresson',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 26.00,
       priceVND: 260000,
       coverUrl: '',
@@ -1081,7 +1081,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Âm Nhạc Và Tâm Hồn',
       author: 'Oliver Sacks',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 23.00,
       priceVND: 230000,
       coverUrl: '',
@@ -1097,7 +1097,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Sắc Màu Phục Hưng',
       author: 'Giorgio Vasari',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 28.00,
       priceVND: 280000,
       coverUrl: '',
@@ -1113,7 +1113,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Thiết Kế Của Sự Vật Hàng Ngày',
       author: 'Don Norman',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 21.50,
       priceVND: 215000,
       coverUrl: '',
@@ -1129,7 +1129,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Hội Họa Ấn Tượng',
       author: 'Claude Monet',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 27.00,
       priceVND: 270000,
       coverUrl: '',
@@ -1145,7 +1145,7 @@ const EXTRA_BOOKS_DATABASE: Record<string, Omit<Book, 'id'>[]> = {
     {
       title: 'Gốm Sứ Vô Giá',
       author: 'Trần Anh Dũng',
-      category: 'NGHỆ THUẬT',
+      category: 'Art',
       priceEUR: 25.00,
       priceVND: 250000,
       coverUrl: '',
@@ -1167,7 +1167,7 @@ const BRAND_AFFILIATIONS = [
   { brandId: 'nxb-tre', brandName: 'Nhà Xuất Bản Trẻ', publisher: 'NXB Trẻ' },
   { brandId: 'kim-dong', brandName: 'Nhà Xuất Bản Kim Đồng', publisher: 'NXB Kim Đồng' },
   { brandId: 'phuong-nam', brandName: 'Nhà Sách Phương Nam', publisher: 'Phương Nam Book' },
-  { brandId: 'dong-a', brandName: 'Đông A Books', publisher: 'NXB Văn Học / Đông A' },
+  { brandId: 'dong-a', brandName: 'Đông A Books', publisher: 'NXB Literature / Đông A' },
   { brandId: 'alpha-books', brandName: 'Alpha Books & Omega+', publisher: 'Alpha Books / Omega+' }
 ];
 
@@ -1181,19 +1181,19 @@ export function enrichBookWithB2C(book: Book, indexSeed: number = 0): Book {
   const absSeed = Math.abs(hash) + indexSeed;
 
   let brandInfo = BRAND_AFFILIATIONS[absSeed % BRAND_AFFILIATIONS.length];
-  if (book.category === 'TRINH THÁM') {
+  if (book.category === 'Mystery') {
     const list = [BRAND_AFFILIATIONS[0], BRAND_AFFILIATIONS[1], BRAND_AFFILIATIONS[2], BRAND_AFFILIATIONS[5]];
     brandInfo = list[absSeed % list.length];
-  } else if (book.category === 'VĂN HỌC') {
+  } else if (book.category === 'Literature') {
     const list = [BRAND_AFFILIATIONS[0], BRAND_AFFILIATIONS[2], BRAND_AFFILIATIONS[4], BRAND_AFFILIATIONS[5], BRAND_AFFILIATIONS[3]];
     brandInfo = list[absSeed % list.length];
-  } else if (book.category === 'LỊCH SỬ') {
+  } else if (book.category === 'History') {
     const list = [BRAND_AFFILIATIONS[6], BRAND_AFFILIATIONS[5], BRAND_AFFILIATIONS[2], BRAND_AFFILIATIONS[1]];
     brandInfo = list[absSeed % list.length];
-  } else if (book.category === 'KHOA HỌC') {
+  } else if (book.category === 'Science') {
     const list = [BRAND_AFFILIATIONS[6], BRAND_AFFILIATIONS[1], BRAND_AFFILIATIONS[3], BRAND_AFFILIATIONS[2]];
     brandInfo = list[absSeed % list.length];
-  } else if (book.category === 'NGHỆ THUẬT') {
+  } else if (book.category === 'Art') {
     const list = [BRAND_AFFILIATIONS[5], BRAND_AFFILIATIONS[4], BRAND_AFFILIATIONS[0], BRAND_AFFILIATIONS[6]];
     brandInfo = list[absSeed % list.length];
   }
@@ -1228,7 +1228,7 @@ export function generateExtraBooks(
   existingCount: number,
   requestedCount: number = 10
 ): Book[] {
-  const pool = EXTRA_BOOKS_DATABASE[category] || EXTRA_BOOKS_DATABASE['VĂN HỌC'];
+  const pool = EXTRA_BOOKS_DATABASE[category] || EXTRA_BOOKS_DATABASE['Literature'];
   const generated: Book[] = [];
 
   for (let i = 0; i < requestedCount; i++) {

@@ -11,8 +11,8 @@ import (
 )
 
 type EnvelopeCiphertext struct {
-	KeyID     string `json:"key_id"`
-	Nonce     string `json:"nonce"`
+	KeyID      string `json:"key_id"`
+	Nonce      string `json:"nonce"`
 	CipherText string `json:"ciphertext"`
 }
 
@@ -34,8 +34,8 @@ func EncryptEnvelope(plain []byte, kek []byte, keyID string) (*EnvelopeCiphertex
 	}
 	ciphertext := gcm.Seal(nil, nonce, plain, nil)
 	return &EnvelopeCiphertext{
-		KeyID:     keyID,
-		Nonce:     base64.StdEncoding.EncodeToString(nonce),
+		KeyID:      keyID,
+		Nonce:      base64.StdEncoding.EncodeToString(nonce),
 		CipherText: base64.StdEncoding.EncodeToString(ciphertext),
 	}, nil
 }

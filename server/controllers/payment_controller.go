@@ -502,7 +502,11 @@ func CreatePaypalPayment(c *gin.Context) {
 	}
 	paypalResp, err := services.CreatePaypalOrder(order.Total, returnURL, cancelURL)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if strings.Contains(err.Error(), "chưa cấu hình") || strings.Contains(err.Error(), "PayPal chưa được cấu hình") {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -550,7 +554,7 @@ func CapturePaypalPayment(c *gin.Context) {
 	// 2. Cơ chế Idempotency: Nếu đơn đã thanh toán rồi, không capture lại
 	if order.PaymentStatus == "paid" {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Đơn hàng đã được thanh toán trước đó",
+			"message":  "Đơn hàng đã được thanh toán trước đó",
 			"order_id": order.ID, "payment_status": "paid", "status": order.Status,
 		})
 		return
@@ -573,7 +577,7 @@ func CapturePaypalPayment(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Thanh toán PayPal thành công!",
+		"message":  "Thanh toán PayPal thành công!",
 		"order_id": order.ID, "total": order.Total,
 		"payment_status": "paid", "status": "confirmed",
 		"payment_trans_id": cap.CaptureID,

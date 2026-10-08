@@ -5,15 +5,22 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 
 	"boko/config"
-	pmiddleware "boko/payments/middleware"
 	"boko/models"
+	pmiddleware "boko/payments/middleware"
 	"boko/routes"
 )
 
 func main() {
+	// Đọc biến môi trường từ server/.env khi chạy local dev
+	if err := godotenv.Load(); err != nil {
+		// Không fatal nếu file .env không tồn tại ở môi trường khác
+		_ = err
+	}
+
 	// Kết nối database
 	config.ConnectDatabase()
 
@@ -82,15 +89,15 @@ func seedData() {
 		})
 	}
 
-	// Tạo danh mục mẫu
+	// Tạo danh mục mẫu cùng tên với UI frontend để đồng bộ giữa backend và frontend
 	config.DB.Model(&models.Category{}).Count(&count)
 	if count == 0 {
 		categories := []models.Category{
-			{Name: "Công Nghệ Thông Tin", Description: "Sách về lập trình, AI, phần mềm"},
-			{Name: "Kinh Tế", Description: "Sách về kinh doanh, marketing, tài chính"},
-			{Name: "Văn Học", Description: "Tiểu thuyết, truyện ngắn, thơ"},
-			{Name: "Khoa Học", Description: "Sách khoa học tự nhiên và xã hội"},
-			{Name: "Ngoại Ngữ", Description: "Sách học tiếng Anh, Nhật, Hàn..."},
+			{Name: "Mystery", Description: "Sách trinh thám, bí ẩn, khám phá"},
+			{Name: "Literature", Description: "Tiểu thuyết, truyện ngắn, thơ"},
+			{Name: "History", Description: "Sách lịch sử, chính trị, văn hóa"},
+			{Name: "Science", Description: "Sách khoa học, công nghệ, xã hội"},
+			{Name: "Art", Description: "Sách nghệ thuật, hội họa, thiết kế"},
 		}
 		for _, c := range categories {
 			config.DB.Create(&c)
@@ -104,19 +111,20 @@ func seedData() {
 		var admin models.User
 		config.DB.Where("role = ?", "admin").First(&admin)
 
-		// Lấy danh mục
-		var catIT, catKinhTe, catVanHoc, catKhoaHoc models.Category
-		config.DB.Where("name = ?", "Công Nghệ Thông Tin").First(&catIT)
-		config.DB.Where("name = ?", "Kinh Tế").First(&catKinhTe)
-		config.DB.Where("name = ?", "Văn Học").First(&catVanHoc)
-		config.DB.Where("name = ?", "Khoa Học").First(&catKhoaHoc)
+		// Lấy danh mục theo tên UI chuẩn
+		var catTrinhTham, catVanHoc, catLichSu, catKhoaHoc, catNgheThuat models.Category
+		config.DB.Where("name = ?", "Mystery").First(&catTrinhTham)
+		config.DB.Where("name = ?", "Literature").First(&catVanHoc)
+		config.DB.Where("name = ?", "History").First(&catLichSu)
+		config.DB.Where("name = ?", "Science").First(&catKhoaHoc)
+		config.DB.Where("name = ?", "Art").First(&catNgheThuat)
 
 		books := []models.Book{
-			{Title: "Lập Trình Go Cơ Bản", Author: "Nguyễn Văn A", Description: "Hướng dẫn lập trình Go từ cơ bản đến nâng cao", Price: 150000, Stock: 100, CategoryID: &catIT.ID, UserID: admin.ID},
-			{Title: "Machine Learning với Python", Author: "Trần Thị B", Description: "Khám phá thế giới học máy với Python", Price: 250000, Stock: 50, CategoryID: &catIT.ID, UserID: admin.ID},
+			{Title: "Lập Trình Go Cơ Bản", Author: "Nguyễn Văn A", Description: "Hướng dẫn lập trình Go từ cơ bản đến nâng cao", Price: 150000, Stock: 100, CategoryID: &catKhoaHoc.ID, UserID: admin.ID},
+			{Title: "The Hound of the Baskervilles", Author: "Arthur Conan Doyle", Description: "Tiểu thuyết trinh thám kinh điển", Price: 250000, Stock: 50, CategoryID: &catTrinhTham.ID, UserID: admin.ID},
 			{Title: "Nhà Giả Kim", Author: "Paulo Coelho", Description: "Hành trình theo đuổi giấc mơ", Price: 79000, Stock: 200, CategoryID: &catVanHoc.ID, UserID: admin.ID},
-			{Title: "Đắc Nhân Tâm", Author: "Dale Carnegie", Description: "Nghệ thuật giao tiếp và đối nhân xử thế", Price: 89000, Stock: 150, CategoryID: &catKinhTe.ID, UserID: admin.ID},
-			{Title: "Lược Sử Vạn Vật", Author: "Bill Bryson", Description: "Hành trình khám phá khoa học", Price: 180000, Stock: 80, CategoryID: &catKhoaHoc.ID, UserID: admin.ID},
+			{Title: "Lịch Sử Việt Nam", Author: "TS. Lê Văn Hồng", Description: "Khái quát lịch sử Việt Nam qua các triều đại", Price: 89000, Stock: 150, CategoryID: &catLichSu.ID, UserID: admin.ID},
+			{Title: "Câu Chuyện Nghệ Thuật", Author: "E.H. Gombrich", Description: "Hành trình khám phá mỹ thuật và hình thành văn hóa", Price: 180000, Stock: 80, CategoryID: &catNgheThuat.ID, UserID: admin.ID},
 		}
 		for _, b := range books {
 			config.DB.Create(&b)

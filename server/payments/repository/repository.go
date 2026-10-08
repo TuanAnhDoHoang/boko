@@ -13,10 +13,10 @@ import (
 )
 
 type MemoryRepository struct {
-	mu             sync.Mutex
-	payments       map[string]*payments.PaymentRecord
-	methods        map[string]*payments.PaymentMethod
-	idempotency    map[string]payments.IdempotencyRecord
+	mu              sync.Mutex
+	payments        map[string]*payments.PaymentRecord
+	methods         map[string]*payments.PaymentMethod
+	idempotency     map[string]payments.IdempotencyRecord
 	processedEvents map[string]time.Time
 }
 
@@ -76,10 +76,10 @@ func (r *MemoryRepository) SaveIdempotency(key string, response any) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.idempotency[key] = payments.IdempotencyRecord{
-		Key:        key,
+		Key:         key,
 		RequestHash: hex.EncodeToString(sum[:]),
-		Response:   string(payload),
-		CreatedAt:  time.Now(),
+		Response:    string(payload),
+		CreatedAt:   time.Now(),
 	}
 	return nil
 }

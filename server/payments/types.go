@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	PaymentStatusPending   = "pending"
+	PaymentStatusPending        = "pending"
 	PaymentStatusRequiresAction = "requires_action"
-	PaymentStatusSucceeded = "succeeded"
-	PaymentStatusFailed    = "failed"
-	PaymentStatusCanceled  = "canceled"
+	PaymentStatusSucceeded      = "succeeded"
+	PaymentStatusFailed         = "failed"
+	PaymentStatusCanceled       = "canceled"
 )
 
 type CreatePaymentRequest struct {
@@ -45,7 +45,7 @@ func (r CreatePaymentRequest) MarshalJSON() ([]byte, error) {
 		alias
 		PaymentMethodID string `json:"payment_method_id"`
 	}{
-		alias:            alias(r),
+		alias:           alias(r),
 		PaymentMethodID: maskToken(r.PaymentMethodID),
 	}
 	return json.Marshal(masked)
@@ -124,17 +124,17 @@ func (m PaymentMethod) MarshalJSON() ([]byte, error) {
 }
 
 type PaymentRecord struct {
-	ID               string    `json:"id"`
-	OrderID          string    `json:"order_id"`
-	PaymentMethodID  string    `json:"payment_method_id"`
-	Provider         string    `json:"provider"`
-	Amount           int64     `json:"amount"`
-	Currency         string    `json:"currency"`
-	Status           string    `json:"status"`
-	ProviderPaymentID string   `json:"provider_payment_id,omitempty"`
-	RequiresAction  bool      `json:"requires_action"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID                string    `json:"id"`
+	OrderID           string    `json:"order_id"`
+	PaymentMethodID   string    `json:"payment_method_id"`
+	Provider          string    `json:"provider"`
+	Amount            int64     `json:"amount"`
+	Currency          string    `json:"currency"`
+	Status            string    `json:"status"`
+	ProviderPaymentID string    `json:"provider_payment_id,omitempty"`
+	RequiresAction    bool      `json:"requires_action"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 func (r PaymentRecord) String() string {
@@ -143,17 +143,17 @@ func (r PaymentRecord) String() string {
 }
 
 type PaymentResult struct {
-	ID               string `json:"id"`
-	Status           string `json:"status"`
+	ID                string `json:"id"`
+	Status            string `json:"status"`
 	ProviderPaymentID string `json:"provider_payment_id,omitempty"`
-	RequiresAction  bool   `json:"requires_action"`
+	RequiresAction    bool   `json:"requires_action"`
 }
 
 type IdempotencyRecord struct {
-	Key        string    `json:"key"`
-	RequestHash string   `json:"request_hash"`
-	Response   string    `json:"response"`
-	CreatedAt  time.Time `json:"created_at"`
+	Key         string    `json:"key"`
+	RequestHash string    `json:"request_hash"`
+	Response    string    `json:"response"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type WebhookEvent struct {

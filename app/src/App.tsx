@@ -16,28 +16,25 @@ import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { UserSettingsModal, SettingsTab } from './components/UserSettingsModal';
 import { LoginPage } from './pages/LoginPage';
 import { PaypalCallback } from './pages/PaypalCallback';
-import { PaymentCallback } from './pages/PaymentCallback';
 import { MomoCallback } from './pages/MomoCallback';
 import { VnpayCallback } from './pages/VnpayCallback';
 import { RequireAuth } from './components/RequireAuth';
 import { getStoredAuthUser, getStoredAuthToken, logoutApi, serverUpdateProfile } from './api/auth';
-import { isBackendConfigured } from './api/client';
-import { fetchBooksIfConfigured } from './api/books';
-import { fetchCartIfConfigured, addToCartSafe, updateCartItemSafe, removeFromCartSafe } from './api/cart';
-import { createOrderSafe } from './api/orders';
+import { isBackendConfigured } from './api/serverAuth';
+import { fetchBooksFromBackend } from './api/catalog';
 import { validateCouponCode } from './api/coupons';
 
 const normalizeCategoryName = (name?: string): string => {
   const value = (name || '').trim().toLowerCase();
 
-  if (!value) return 'LITERATURE';
-  if (value.includes('trinh') || value.includes('detective') || value.includes('mystery')) return 'MYSTERY';
-  if (value.includes('van') || value.includes('literature') || value.includes('story') || value.includes('ngon')) return 'LITERATURE';
-  if (value.includes('lich') || value.includes('history')) return 'HISTORY';
-  if (value.includes('khoa') || value.includes('science') || value.includes('tech') || value.includes('it')) return 'SCIENCE';
-  if (value.includes('nghe') || value.includes('art')) return 'ART';
+  if (!value) return 'Literature';
+  if (value.includes('trinh') || value.includes('detective') || value.includes('mystery')) return 'Mystery';
+  if (value.includes('van') || value.includes('literature') || value.includes('story') || value.includes('ngon')) return 'Literature';
+  if (value.includes('lich') || value.includes('history')) return 'History';
+  if (value.includes('khoa') || value.includes('science') || value.includes('tech') || value.includes('it')) return 'Science';
+  if (value.includes('nghe') || value.includes('art')) return 'Art';
 
-  return 'LITERATURE';
+  return 'Literature';
 };
 
 export default function App() {
@@ -47,6 +44,28 @@ export default function App() {
   const [currency, setCurrency] = useState<Currency>('VND');
   const [booksList, setBooksList] = useState<Book[]>(BOOKS_DATA);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadBooks() {
+      if (!isBackendConfigured()) return;
+
+      try {
+        const backendBooks = await fetchBooksFromBackend();
+        if (isMounted && backendBooks.length > 0) {
+          setBooksList(backendBooks);
+        }
+      } catch (error) {
+        console.warn('Failed to load books from backend:', error);
+      }
+    }
+
+    loadBooks();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Used Books Marketplace state with localStorage persistence
   const [usedBooksList, setUsedBooksList] = useState<UsedBookListing[]>(() => {
@@ -76,13 +95,7 @@ export default function App() {
     setIsSettingsOpen(true);
   };
 
-  const [cart, setCart] = useState<CartItem[]>([
-    // Initialize with Albert Camus L'Étranger by default so user can test cart & checkout immediately
-    {
-      book: BOOKS_DATA.find((b) => b.id === 'camus-1') || BOOKS_DATA[0],
-      quantity: 1,
-    },
-  ]);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   // Modals state
   const [selectedBookForReader, setSelectedBookForReader] = useState<Book | null>(null);
@@ -149,13 +162,14 @@ export default function App() {
     setCart((prevCart) => prevCart.filter((item) => item.book.id !== bookId));
   };
 
-  const handleApplyDiscountCode = (code: string) => {
-    const cleanCode = code.trim().toUpperCase();
-    if (cleanCode === 'GIAM10' || cleanCode === 'FREESHIP') {
-      setAppliedDiscountCode(cleanCode);
-      return true;
+  const handleApplyDiscountCode = async (code: string): Promise<boolean> => {
+    const validation = await validateCouponCode(code);
+    if (!validation.isValid) {
+      return false;
     }
-    return false;
+
+    setAppliedDiscountCode(validation.code);
+    return true;
   };
 
   const handleSelectBook = (book: Book) => {
@@ -212,8 +226,6 @@ export default function App() {
       console.error(e);
     }
 
-    if (!isBackendConfigured()) return;
-
     const token = getStoredAuthToken();
     if (!token) return;
 
@@ -233,7 +245,7 @@ export default function App() {
     setIsOrderSuccessOpen(true);
   };
 
-  const categories = ['TRINH THÁM', 'VĂN HỌC', 'LỊCH SỬ', 'KHOA HỌC', 'NGHỆ THUẬT'];
+  const categories = ['Mystery', 'Literature', 'History', 'Science', 'Art'];
   const totalCartItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // Check if current route is auth page
