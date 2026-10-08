@@ -1,1 +1,45 @@
+# Dependencies
 node_modules/
+**/node_modules/
+
+# Frontend build output
+app/dist/
+app/.vite/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+!server/.env.example
+!app/.env.example
+
+# Go build artifacts
+server/bin/
+server/*.exe
+server/*.test
+server/*.out
+server/tmp/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker local overrides
+docker-compose.override.yml
+
+# Misc
+*.local
