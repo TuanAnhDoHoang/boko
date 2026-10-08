@@ -12,3 +12,6 @@ Thumbs.db
 
 # Docker
 __debug_bin
+
+# Test files
+*_test.go

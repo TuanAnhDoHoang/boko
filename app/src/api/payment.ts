@@ -1,5 +1,16 @@
 import { getBackendBaseUrl } from './serverAuth';
 
+export interface MomoPaymentResponse {
+  message: string;
+  order_id: number;
+  amount: number;
+  momo_order_id: string;
+  pay_url: string;
+  deeplink: string;
+  qr_code_url: string;
+  applink: string;
+}
+
 export interface PaymentStatusResponse {
   order_id: number;
   total: number;
@@ -10,6 +21,296 @@ export interface PaymentStatusResponse {
   payment_order_id: string;
   updated_at: string;
 }
+
+export interface CreateMomoPaymentParams {
+  orderId?: number;
+  amount?: number;
+  shippingAddress?: string;
+  phone?: string;
+  email?: string;
+  redirectUrl?: string;
+  requestType?: string;
+}
+
+function getAuthToken(): string {
+  try {
+    const token = localStorage.getItem('boko_auth_token') || '';
+    // Nếu là mock-token từ chế độ giả lập offline thì không gửi lên backend thật
+    if (!token || token.startsWith('mock-token-')) {
+      return '';
+    }
+    return token;
+  } catch {
+    return '';
+  }
+}
+
+function getBaseUrl(): string {
+  const configured = getBackendBaseUrl();
+  return configured || 'http://localhost:8080';
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/**
+ * Khởi tạo yêu cầu thanh toán MoMo Sandbox qua Backend Go
+ * Endpoint: POST /api/payment/momo/create
+ */
+export async function createMomoPaymentApi(
+  params: CreateMomoPaymentParams
+): Promise<MomoPaymentResponse> {
+  const baseUrl = getBaseUrl();
+  const token = getAuthToken();
+
+  const response = await fetch(`${baseUrl}/api/payment/momo/create`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      order_id: params.orderId || 0,
+      amount: params.amount,
+      shipping_address: params.shippingAddress,
+      phone: params.phone,
+      email: params.email,
+      redirect_url: params.redirectUrl || `${window.location.origin}/payment/momo-callback`,
+      request_type: params.requestType || 'payWithATM',
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    // Nếu token bị hết hạn hoặc không hợp lệ, tự động dọn dẹp để không làm kẹt các lần thanh toán tiếp theo
+    if (response.status === 401) {
+      try {
+        localStorage.removeItem('boko_auth_token');
+      } catch {}
+    }
+    throw new Error(data.error || data.message || `Lỗi khi kết nối MoMo: HTTP ${response.status}`);
+  }
+
+  return data as MomoPaymentResponse;
+}
+
+/**
+ * Tra cứu trạng thái thanh toán của đơn hàng (có tự động đồng bộ từ MoMo Gateway)
+ * Endpoint: GET /api/payment/momo/status/:id
+ */
+export async function getPaymentStatusApi(orderId: number | string): Promise<PaymentStatusResponse> {
+  const baseUrl = getBaseUrl();
+  const token = getAuthToken();
+
+  const response = await fetch(`${baseUrl}/api/payment/momo/status/${orderId}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Lỗi tra cứu đơn hàng: HTTP ${response.status}`);
+  }
+
+  return data as PaymentStatusResponse;
+}
+
+/**
+ * Giả lập kích hoạt Webhook MoMo IPN thành công (dành cho kiểm thử nội bộ)
+ * Endpoint: POST /api/payment/momo/mock-ipn/:id
+ */
+export async function mockMomoIpnApi(orderId: number | string): Promise<{ message: string; payment_status: string }> {
+  const baseUrl = getBaseUrl();
+
+  const response = await fetch(`${baseUrl}/api/payment/momo/mock-ipn/${orderId}`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Lỗi mock IPN: HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+export interface MomoSimulatorParams {
+  orderId: string;
+  resultCode: number;
+  payType?: string;
+  tamperSignature?: boolean;
+}
+
+export interface MomoSimulatorResponse {
+  success: boolean;
+  security_status: string;
+  message: string;
+  order_id: number;
+  payment_order_id: string;
+  trans_id: string;
+  amount: number;
+  result_code: number;
+  raw_signature_data?: string;
+  signature?: string;
+  redirect_url?: string;
+  error?: string;
+  submitted_signature?: string;
+  expected_signature?: string;
+  tampered?: boolean;
+}
+
+/**
+ * Gửi yêu cầu thanh toán qua Cổng Giả Lập MoMo Sandbox
+ * Endpoint: POST /api/payment/momo/simulator-ipn
+ */
+export async function submitMomoSimulatorApi(
+  params: MomoSimulatorParams
+): Promise<MomoSimulatorResponse> {
+  const baseUrl = getBaseUrl();
+
+  const response = await fetch(`${baseUrl}/api/payment/momo/simulator-ipn`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      order_id: params.orderId,
+      result_code: params.resultCode,
+      pay_type: params.payType || 'credit',
+      tamper_signature: !!params.tamperSignature,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    return {
+      success: false,
+      security_status: data.security_status || 'ERROR',
+      message: data.error || data.message || `Lỗi: HTTP ${response.status}`,
+      order_id: 0,
+      payment_order_id: params.orderId,
+      trans_id: '',
+      amount: 0,
+      result_code: params.resultCode,
+      raw_signature_data: data.raw_signature_data,
+      submitted_signature: data.submitted_signature,
+      expected_signature: data.expected_signature,
+      tampered: data.tampered,
+    };
+  }
+
+  return data as MomoSimulatorResponse;
+}
+
+// ==================== VNPAY API ====================
+
+export interface CreateVnpayPaymentParams {
+  orderId?: number;
+  amount: number;
+  shippingAddress?: string;
+  phone?: string;
+  email?: string;
+  bankCode?: string;
+  redirectUrl?: string;
+}
+
+export interface VnpayPaymentResponse {
+  message: string;
+  order_id: number;
+  amount: number;
+  payment_url: string;
+  txn_ref: string;
+}
+
+/**
+ * Khởi tạo yêu cầu thanh toán VNPAY Sandbox
+ * Endpoint: POST /api/payment/vnpay/create
+ */
+export async function createVnpayPaymentApi(
+  params: CreateVnpayPaymentParams
+): Promise<VnpayPaymentResponse> {
+  const baseUrl = getBaseUrl();
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${baseUrl}/api/payment/vnpay/create`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      order_id: params.orderId || 0,
+      amount: params.amount,
+      shipping_address: params.shippingAddress || '',
+      phone: params.phone || '',
+      email: params.email || '',
+      bank_code: params.bankCode || '',
+      redirect_url: params.redirectUrl || '',
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Lỗi tạo thanh toán VNPAY: HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
+ * Lấy trạng thái đơn hàng thanh toán VNPAY từ Backend
+ * Endpoint: GET /api/payment/vnpay/status/:id
+ */
+export async function getVnpayStatusApi(
+  orderId: number | string,
+  queryString?: string
+): Promise<PaymentStatusResponse> {
+  const baseUrl = getBaseUrl();
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const query = queryString ? (queryString.startsWith('?') ? queryString : `?${queryString}`) : '';
+  const response = await fetch(`${baseUrl}/api/payment/vnpay/status/${orderId}${query}`, {
+    method: 'GET',
+    headers,
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Lỗi lấy trạng thái VNPAY: HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+// ==================== PAYPAL API ====================
 
 export interface CreatePaypalPaymentParams {
   orderId?: number;
@@ -27,24 +328,6 @@ export interface PaypalPaymentResponse {
   amount_usd: number;
   paypal_order_id: string;
   approve_url: string;
-}
-
-function getAuthToken(): string {
-  try {
-    const token = localStorage.getItem('boko_auth_token') || '';
-    // Nếu là mock-token từ chế độ giả lập offline thì không gửi lên backend thật
-    if (!token || token.startsWith('mock-token-')) {
-      return '';
-    }
-    return token;
-  } catch {
-    return '';
-  }
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 /**

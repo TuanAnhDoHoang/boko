@@ -34,13 +34,22 @@ func SetupRoutes(r *gin.Engine) {
 	// Reviews (public)
 	r.GET("/api/books/:id/reviews", controllers.GetBookReviews)
 
-	// Payments Webhook (public cho MoMo Sandbox Gateway gọi vào)
+	// Payments Webhook & Status (public cho MoMo Gateway và trang Callback)
 	r.POST("/api/payment/momo/ipn", controllers.MomoIPN)
 	r.POST("/api/payment/momo/mock-ipn/:id", controllers.MockMomoIPN)
-	// PayPal mock capture (public, test nội bộ không cần tiền thật)
-	r.POST("/api/payment/paypal/mock-capture/:id", controllers.MockPaypalCapture)
+	r.POST("/api/payment/momo/simulator-ipn", controllers.MomoSimulatorIPN)
+	r.GET("/api/payment/momo/status/:id", middleware.AuthOptional, controllers.GetPaymentStatus)
 
-	// PayPal Payment Routes (hỗ trợ cả user đăng nhập và khách, giống VNPay)
+	// Payments Create (hỗ trợ cả người dùng đăng nhập và khách)
+	r.POST("/api/payment/momo/create", middleware.AuthOptional, controllers.CreateMomoPayment)
+
+	// VNPAY Payment Routes
+	r.GET("/api/payment/vnpay/ipn", controllers.VnPayIPN)
+	r.GET("/api/payment/vnpay/status/:id", middleware.AuthOptional, controllers.GetVnPayPaymentStatus)
+	r.POST("/api/payment/vnpay/create", middleware.AuthOptional, controllers.CreateVnPayPayment)
+
+	// PayPal Payment Routes — cùng cấu trúc với MoMo/VNPay
+	r.POST("/api/payment/paypal/mock-capture/:id", controllers.MockPaypalCapture)
 	r.GET("/api/payment/paypal/status/:id", middleware.AuthOptional, controllers.GetPaypalPaymentStatus)
 	r.POST("/api/payment/paypal/create", middleware.AuthOptional, controllers.CreatePaypalPayment)
 	r.POST("/api/payment/paypal/capture", middleware.AuthOptional, controllers.CapturePaypalPayment)
@@ -77,10 +86,6 @@ func SetupRoutes(r *gin.Engine) {
 		auth.GET("/orders", controllers.GetMyOrders)
 		auth.GET("/orders/:id", controllers.GetOrderDetail)
 		auth.PUT("/orders/:id/cancel", controllers.CancelOrder)
-
-		// Payments (user)
-		auth.POST("/payment/momo/create", controllers.CreateMomoPayment)
-		auth.GET("/payment/momo/status/:id", controllers.GetPaymentStatus)
 
 		// Reviews
 		auth.POST("/books/:id/reviews", controllers.CreateReview)

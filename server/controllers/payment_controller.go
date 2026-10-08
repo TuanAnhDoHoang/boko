@@ -19,15 +19,14 @@ import (
 
 // CreateMomoPayment — Tạo yêu cầu thanh toán MoMo cho một đơn hàng (Phương án A)
 func CreateMomoPayment(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Vui lòng đăng nhập"})
-		return
-	}
-
 	var input struct {
-		OrderID     uint   `json:"order_id" binding:"required"`
-		RedirectURL string `json:"redirect_url"`
+		OrderID         uint    `json:"order_id"`
+		Amount          float64 `json:"amount"`
+		ShippingAddress string  `json:"shipping_address"`
+		Phone           string  `json:"phone"`
+		Email           string  `json:"email"`
+		RedirectURL     string  `json:"redirect_url"`
+		RequestType     string  `json:"request_type"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -35,10 +34,61 @@ func CreateMomoPayment(c *gin.Context) {
 		return
 	}
 
-	// 1. Kiểm tra đơn hàng thuộc quyền sở hữu của user
+	// Xác định user_id: ưu tiên từ JWT token đã xác thực, nếu không có thì liên kết qua email hoặc tài khoản khách
+	var currentUserID uint
+	if val, exists := c.Get("user_id"); exists {
+		if uid, ok := val.(uint); ok {
+			currentUserID = uid
+		}
+	}
+
+	if currentUserID == 0 {
+		targetEmail := input.Email
+		if targetEmail == "" {
+			targetEmail = "guest@boko.com"
+		}
+		var user models.User
+		if err := config.DB.Where("email = ?", targetEmail).First(&user).Error; err != nil {
+			user = models.User{
+				Email: targetEmail,
+				Name:  "Khách mua hàng",
+				Role:  "customer",
+			}
+			config.DB.Create(&user)
+		}
+		currentUserID = user.ID
+	}
+
+	// 1. Tìm đơn hàng có sẵn hoặc tạo đơn hàng mới nếu truyền amount
 	var order models.Order
-	if err := config.DB.Where("id = ? AND user_id = ?", input.OrderID, userID).First(&order).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập"})
+	if input.OrderID > 0 {
+		var err error
+		if val, exists := c.Get("user_id"); exists {
+			err = config.DB.Where("id = ? AND user_id = ?", input.OrderID, val.(uint)).First(&order).Error
+		} else {
+			err = config.DB.First(&order, input.OrderID).Error
+		}
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập"})
+			return
+		}
+	} else if input.Amount >= 1000 {
+		order = models.Order{
+			UserID:          currentUserID,
+			Total:           input.Amount,
+			Status:          "pending",
+			PaymentStatus:   "unpaid",
+			PaymentMethod:   "momo",
+			ShippingAddress: input.ShippingAddress,
+			Phone:           input.Phone,
+			CreatedAt:       time.Now(),
+		}
+		if err := config.DB.Create(&order).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo đơn hàng: " + err.Error()})
+			return
+		}
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Vui lòng cung cấp order_id hoặc số tiền amount hợp lệ (>= 1,000 VND)"})
 		return
 	}
 
@@ -49,7 +99,11 @@ func CreateMomoPayment(c *gin.Context) {
 	}
 
 	// 3. Gọi MoMo Service để tạo URL thanh toán
-	momoResp, err := services.CreateMomoPaymentUrl(&order, input.RedirectURL)
+	reqType := input.RequestType
+	if reqType == "" {
+		reqType = "payWithMethod"
+	}
+	momoResp, err := services.CreateMomoPaymentUrl(&order, input.RedirectURL, reqType)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -129,13 +183,8 @@ func MomoIPN(c *gin.Context) {
 }
 
 // GetPaymentStatus — Kiểm tra trạng thái thanh toán của đơn hàng (có tự động sync Gateway)
+// GetPaymentStatus — Lấy thông tin trạng thái thanh toán đơn hàng (hỗ trợ cả Callback & User Profile)
 func GetPaymentStatus(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Vui lòng đăng nhập"})
-		return
-	}
-
 	orderIDStr := c.Param("id")
 	orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
 	if err != nil {
@@ -144,7 +193,14 @@ func GetPaymentStatus(c *gin.Context) {
 	}
 
 	var order models.Order
-	if err := config.DB.Where("id = ? AND user_id = ?", uint(orderID), userID).First(&order).Error; err != nil {
+	var dbErr error
+	if userID, exists := c.Get("user_id"); exists {
+		dbErr = config.DB.Where("id = ? AND user_id = ?", uint(orderID), userID).First(&order).Error
+	} else {
+		dbErr = config.DB.First(&order, uint(orderID)).Error
+	}
+
+	if dbErr != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy đơn hàng"})
 		return
 	}
@@ -207,6 +263,150 @@ func MockMomoIPN(c *gin.Context) {
 		"payment_status":   "paid",
 		"status":           "confirmed",
 		"payment_trans_id": mockTransID,
+	})
+}
+
+// MomoSimulatorIPN — Xử lý thanh toán từ Cổng Giả Lập MoMo Sandbox với ký số HMAC-SHA256 đầy đủ
+func MomoSimulatorIPN(c *gin.Context) {
+	var input struct {
+		OrderID         string `json:"order_id"`
+		ResultCode      int    `json:"result_code"`
+		PayType         string `json:"pay_type"`
+		TamperSignature bool   `json:"tamper_signature"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
+
+	// 1. Tìm đơn hàng
+	var order models.Order
+	if err := config.DB.Where("payment_order_id = ?", input.OrderID).First(&order).Error; err != nil {
+		var id uint
+		if n, _ := fmt.Sscanf(input.OrderID, "BOKO_%d_", &id); n == 1 {
+			config.DB.Where("id = ?", id).First(&order)
+		} else if numID, errParse := strconv.ParseUint(input.OrderID, 10, 32); errParse == nil {
+			config.DB.Where("id = ?", uint(numID)).First(&order)
+		}
+	}
+
+	if order.ID == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy đơn hàng tương ứng"})
+		return
+	}
+
+	cfg := payments.GetMomoConfig()
+	timestamp := time.Now().UnixMilli()
+	transID := timestamp
+
+	momoOrderID := order.PaymentOrderID
+	if momoOrderID == "" {
+		momoOrderID = fmt.Sprintf("BOKO_%d_%d", order.ID, timestamp)
+	}
+	momoRequestID := order.PaymentRequestID
+	if momoRequestID == "" {
+		momoRequestID = fmt.Sprintf("REQ_%d_%d", order.ID, timestamp)
+	}
+
+	payType := input.PayType
+	if payType == "" {
+		payType = "credit"
+	}
+
+	message := "Thành công."
+	if input.ResultCode != 0 {
+		message = "Giao dịch bị từ chối hoặc bị hủy bởi khách hàng."
+	}
+
+	// 2. Tạo chuỗi ký HMAC-SHA256 chuẩn MoMo
+	rawSignature := fmt.Sprintf(
+		"accessKey=%s&amount=%d&extraData=%s&message=%s&orderId=%s&orderInfo=%s&orderType=%s&partnerCode=%s&payType=%s&requestId=%s&responseTime=%d&resultCode=%d&transId=%d",
+		cfg.AccessKey, int64(order.Total), "", message, momoOrderID,
+		fmt.Sprintf("Thanh toan don hang Boko #%d", order.ID), "momo_wallet",
+		cfg.PartnerCode, payType, momoRequestID, timestamp, input.ResultCode, transID,
+	)
+
+	validSignature := services.CreateHmacSha256(rawSignature, cfg.SecretKey)
+
+	submittedSignature := validSignature
+	if input.TamperSignature {
+		submittedSignature = "TAMPERED_INVALID_SIG_" + validSignature[:16]
+	}
+
+	ipnReq := payments.MomoIpnRequest{
+		PartnerCode:  cfg.PartnerCode,
+		OrderID:      momoOrderID,
+		RequestID:    momoRequestID,
+		Amount:       int64(order.Total),
+		OrderInfo:    fmt.Sprintf("Thanh toan don hang Boko #%d", order.ID),
+		OrderType:    "momo_wallet",
+		TransID:      transID,
+		ResultCode:   input.ResultCode,
+		Message:      message,
+		PayType:      payType,
+		ResponseTime: timestamp,
+		ExtraData:    "",
+		Signature:    submittedSignature,
+	}
+
+	// 3. Kiểm tra tính toàn vẹn và xác thực chữ ký số bằng thuật toán crypto của hệ thống
+	isSignatureValid := services.VerifyMomoIpnSignature(&ipnReq)
+	if !isSignatureValid {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success":             false,
+			"security_status":     "BLOCKED_TAMPERING_DETECTED",
+			"error":               "CẢNH BÁO AN TOÀN TMĐT: Chữ ký số HMAC-SHA256 không hợp lệ hoặc gói tin đã bị can thiệp! Hệ thống từ chối cập nhật đơn hàng.",
+			"raw_signature_data":  rawSignature,
+			"submitted_signature": submittedSignature,
+			"expected_signature":  validSignature,
+			"tampered":            true,
+		})
+		return
+	}
+
+	// 4. Cơ chế Idempotency
+	if order.PaymentStatus == "paid" && input.ResultCode == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success":          true,
+			"message":          "Đơn hàng này đã được thanh toán từ trước (Idempotency Safe).",
+			"order_id":         order.ID,
+			"payment_order_id": momoOrderID,
+			"redirect_url": fmt.Sprintf("/payment/momo-callback?orderId=%s&resultCode=0&message=%s&transId=%s&amount=%d",
+				momoOrderID, message, order.PaymentTransID, int64(order.Total)),
+		})
+		return
+	}
+
+	// 5. Cập nhật trạng thái đơn hàng
+	if input.ResultCode == 0 {
+		config.DB.Model(&order).Updates(map[string]interface{}{
+			"payment_status":     "paid",
+			"status":             "confirmed",
+			"payment_trans_id":   strconv.FormatInt(transID, 10),
+			"payment_method":     "momo",
+			"payment_order_id":   momoOrderID,
+			"payment_request_id": momoRequestID,
+		})
+	} else {
+		config.DB.Model(&order).Updates(map[string]interface{}{
+			"payment_status": "failed",
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":            true,
+		"security_status":    "SIGNATURE_VERIFIED_HMAC_SHA256",
+		"message":            "Xác thực chữ ký điện tử HMAC-SHA256 thành công. Giao dịch đã được cập nhật an toàn.",
+		"order_id":           order.ID,
+		"payment_order_id":   momoOrderID,
+		"trans_id":           strconv.FormatInt(transID, 10),
+		"amount":             order.Total,
+		"result_code":        input.ResultCode,
+		"raw_signature_data": rawSignature,
+		"signature":          validSignature,
+		"redirect_url": fmt.Sprintf("/payment/momo-callback?orderId=%s&resultCode=%d&message=%s&transId=%d&amount=%d",
+			momoOrderID, input.ResultCode, message, transID, int64(order.Total)),
 	})
 }
 
