@@ -25,6 +25,7 @@ func CreateVnPayPayment(c *gin.Context) {
 		Phone           string  `json:"phone"`
 		Email           string  `json:"email"`
 		BankCode        string  `json:"bank_code"`
+		PaymentMethod   string  `json:"payment_method"`
 		RedirectURL     string  `json:"redirect_url"`
 	}
 
@@ -72,12 +73,19 @@ func CreateVnPayPayment(c *gin.Context) {
 			return
 		}
 	} else if input.Amount >= 5000 {
+		pm := "vnpay"
+		if input.PaymentMethod != "" {
+			pm = input.PaymentMethod
+		} else if input.BankCode == "NCB" {
+			pm = "atm"
+		}
+
 		order = models.Order{
 			UserID:          currentUserID,
 			Total:           input.Amount,
 			Status:          "pending",
 			PaymentStatus:   "unpaid",
-			PaymentMethod:   "vnpay",
+			PaymentMethod:   pm,
 			ShippingAddress: input.ShippingAddress,
 			Phone:           input.Phone,
 			CreatedAt:       time.Now(),
@@ -106,10 +114,13 @@ func CreateVnPayPayment(c *gin.Context) {
 	}
 
 	// 4. Lưu lại mã tham chiếu VNPAY vào database
-	config.DB.Model(&order).Updates(map[string]interface{}{
-		"payment_method":   "vnpay",
+	updates := map[string]interface{}{
 		"payment_order_id": txnRef,
-	})
+	}
+	if order.PaymentMethod == "" {
+		updates["payment_method"] = "vnpay"
+	}
+	config.DB.Model(&order).Updates(updates)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "Khởi tạo giao dịch VNPAY thành công",
@@ -178,12 +189,15 @@ func VnPayIPN(c *gin.Context) {
 	// 5. Cập nhật trạng thái đơn hàng dựa trên vnp_ResponseCode và vnp_TransactionStatus
 	if responseCode == "00" && transactionStatus == "00" {
 		// Thanh toán thành công
-		config.DB.Model(&order).Updates(map[string]interface{}{
+		updates := map[string]interface{}{
 			"payment_status":   "paid",
 			"status":           "confirmed",
 			"payment_trans_id": transactionNo,
-			"payment_method":   "vnpay",
-		})
+		}
+		if order.PaymentMethod == "" {
+			updates["payment_method"] = "vnpay"
+		}
+		config.DB.Model(&order).Updates(updates)
 	} else {
 		// Thanh toán thất bại hoặc người dùng hủy
 		config.DB.Model(&order).Updates(map[string]interface{}{
@@ -226,12 +240,15 @@ func GetVnPayPaymentStatus(c *gin.Context) {
 		responseCode := queryParams.Get("vnp_ResponseCode")
 		transactionNo := queryParams.Get("vnp_TransactionNo")
 		if responseCode == "00" && order.PaymentStatus != "paid" {
-			config.DB.Model(&order).Updates(map[string]interface{}{
+			updates := map[string]interface{}{
 				"payment_status":   "paid",
 				"status":           "confirmed",
 				"payment_trans_id": transactionNo,
-				"payment_method":   "vnpay",
-			})
+			}
+			if order.PaymentMethod == "" {
+				updates["payment_method"] = "vnpay"
+			}
+			config.DB.Model(&order).Updates(updates)
 			order.PaymentStatus = "paid"
 			order.Status = "confirmed"
 			order.PaymentTransID = transactionNo
@@ -244,12 +261,15 @@ func GetVnPayPaymentStatus(c *gin.Context) {
 		transDate := order.CreatedAt.In(loc).Format("20060102150405")
 		if queryResp, err := services.QueryVnPayTransaction(order.PaymentOrderID, transDate, c.ClientIP()); err == nil {
 			if queryResp.ResponseCode == "00" && queryResp.TransactionStatus == "00" {
-				config.DB.Model(&order).Updates(map[string]interface{}{
+				updates := map[string]interface{}{
 					"payment_status":   "paid",
 					"status":           "confirmed",
 					"payment_trans_id": queryResp.TransactionNo,
-					"payment_method":   "vnpay",
-				})
+				}
+				if order.PaymentMethod == "" {
+					updates["payment_method"] = "vnpay"
+				}
+				config.DB.Model(&order).Updates(updates)
 				order.PaymentStatus = "paid"
 				order.Status = "confirmed"
 				order.PaymentTransID = queryResp.TransactionNo

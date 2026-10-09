@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CartItem, CheckoutFormState, Currency, Order, User, ShippingAddress } from '../types';
-import { createMomoPaymentApi, createVnpayPaymentApi, createPaypalPaymentApi } from '../api/payment';
+import { createMomoPaymentApi, createVnpayPaymentApi, createPaypalPaymentApi, VerifyAtmOtpResponse } from '../api/payment';
 import { createCodOrderApi } from '../api/order';
+import { NcbOtpModal } from './NcbOtpModal';
 
 // PayPal không hỗ trợ VND → backend quy đổi sang USD (VNDPerUSD bên service)
 const VND_PER_USD = 25000;
@@ -58,6 +59,8 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
   const [momoMethod, setMomoMethod] = useState<'payWithMethod' | 'captureWallet'>('payWithMethod');
   const [isSubmittingVnpay, setIsSubmittingVnpay] = useState<boolean>(false);
   const [isSubmittingPaypal, setIsSubmittingPaypal] = useState<boolean>(false);
+  const [isSubmittingAtm, setIsSubmittingAtm] = useState<boolean>(false);
+  const [showNcbOtpModal, setShowNcbOtpModal] = useState<boolean>(false);
   const [vnpayMethod, setVnpayMethod] = useState<'NCB' | 'VNPAYQR' | 'VISA'>('NCB');
 
   const savedCards = (user?.paymentMethods || []).filter((m) => m.type === 'card');
@@ -174,6 +177,46 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     navigator.clipboard.writeText('88992026888');
     setCopiedBank(true);
     setTimeout(() => setCopiedBank(false), 2000);
+  };
+
+  const handleAtmPaymentSuccess = (res: VerifyAtmOtpResponse) => {
+    const newOrder: Order = {
+      id: `BST-${res.order_id}`,
+      dbId: res.order_id,
+      date: new Date().toLocaleDateString('vi-VN'),
+      items: displayItems,
+      customer: formData,
+      subtotalEUR,
+      subtotalVND,
+      discountEUR,
+      discountVND,
+      vatEUR,
+      vatVND,
+      shippingEUR,
+      shippingVND,
+      totalEUR,
+      totalVND,
+      currency,
+      discountCode: appliedDiscountCode || undefined,
+      status: 'shipping',
+      paymentStatus: 'paid',
+      paymentMethod: 'atm',
+      shippingAddress: buildShippingAddress() || 'Địa chỉ nhận sách Boko',
+      phone: formData.telephone,
+    };
+
+    // Lưu vào localStorage danh sách boko_orders để đồng bộ tức thì
+    try {
+      const saved = localStorage.getItem('boko_orders');
+      const existingList = saved ? JSON.parse(saved) : [];
+      const updatedList = [newOrder, ...existingList.filter((o: any) => o.id !== newOrder.id)];
+      localStorage.setItem('boko_orders', JSON.stringify(updatedList));
+    } catch (e) {
+      console.error(e);
+    }
+
+    setShowNcbOtpModal(false);
+    onOrderPlaced(newOrder);
   };
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -294,30 +337,10 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
       }
     }
 
-    // Nếu chọn thanh toán qua PayPal -> Tạo đơn PayPal rồi chuyển hướng sang PayPal duyệt.
-    // PayPal duyệt xong redirect về /payment/paypal-callback để xác nhận và lưu đơn.
-    if (formData.paymentMethod === 'paypal') {
-      setIsSubmittingPaypal(true);
-      try {
-        const res = await createPaypalPaymentApi({
-          amount: Math.round(totalVND),
-          shippingAddress: buildShippingAddress() || 'Địa chỉ nhận sách Boko',
-          phone: formData.telephone,
-          email: formData.email,
-          redirectUrl: `${window.location.origin}/payment/paypal-callback`,
-        });
-
-        if (res && res.approve_url) {
-          window.location.href = res.approve_url;
-          return;
-        } else {
-          throw new Error('Không nhận được link duyệt PayPal.');
-        }
-      } catch (err: unknown) {
-        setIsSubmittingPaypal(false);
-        setFormErrors([(err as Error)?.message || 'Không thể tạo phiên thanh toán PayPal. Vui lòng kiểm tra lại.']);
-        return;
-      }
+    // Nếu chọn thanh toán qua Thẻ ATM Nội Địa -> Mở Modal Xác Thực OTP NCB 1-chạm (Không chuyển sang VNPAY ngoài)
+    if (formData.paymentMethod === 'atm') {
+      setShowNcbOtpModal(true);
+      return;
     }
 
     let createdDbId: number | undefined;
@@ -1071,24 +1094,6 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                             </div>
                           </div>
                         </div>
-
-                        {vnpayMethod === 'NCB' && (
-                          <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/90 text-[11px] text-blue-950 space-y-1.5">
-                            <p className="font-bold text-blue-900 flex items-center gap-1.5">
-                              <i className="fa-solid fa-credit-card text-blue-700"></i>
-                              <span>Thông tin thẻ Test Sandbox Ngân hàng NCB:</span>
-                            </p>
-                            <div className="bg-white/95 p-2.5 rounded-lg border border-blue-200/70 space-y-1">
-                              <p>Ngân hàng: <strong className="text-slate-900">NCB (Ngân hàng Quốc Dân)</strong></p>
-                              <p>Số thẻ test: <strong className="font-mono text-blue-800 font-bold tracking-wider">9704198526191432198</strong></p>
-                              <p>Tên chủ thẻ: <strong className="font-mono text-slate-900">NGUYEN VAN A</strong> | Ngày phát hành: <strong className="font-mono text-slate-900">07/15</strong></p>
-                              <p>Mã OTP xác thực: <strong className="font-mono text-emerald-700 font-bold text-xs bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">123456</strong></p>
-                            </div>
-                            <p className="text-[10px] text-slate-500 italic">
-                              Hệ thống sẽ chuyển hướng thẳng sang Cổng VNPAY Sandbox thật, không cần cài thêm App.
-                            </p>
-                          </div>
-                        )}
                       </div>
                     )}
 
@@ -1245,10 +1250,12 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
             <button
               type="button"
               onClick={handleSubmitOrder}
-              disabled={isSubmittingMomo || isSubmittingVnpay || isSubmittingPaypal}
+              disabled={isSubmittingMomo || isSubmittingVnpay || isSubmittingPaypal || isSubmittingAtm}
               className={`text-white font-label-caps text-xs py-4 px-10 rounded-lg w-full sm:w-auto uppercase tracking-widest font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 ${
                 formData.paymentMethod === 'ewallet' && formData.ewalletType === 'momo'
                   ? 'bg-[#a50064] hover:bg-[#860051] shadow-pink-200'
+                  : formData.paymentMethod === 'atm'
+                  ? 'bg-teal-700 hover:bg-teal-800 shadow-teal-200'
                   : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
               } disabled:opacity-60`}
             >
@@ -1267,12 +1274,19 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                   <span>ĐANG KẾT NỐI PAYPAL...</span>
                 </>
+              ) : isSubmittingAtm ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>ĐANG KẾT NỐI CỔNG NCB...</span>
+                </>
               ) : formData.paymentMethod === 'paypal' ? (
                 'ĐẶT HÀNG & THANH TOÁN PAYPAL'
               ) : formData.paymentMethod === 'ewallet' && formData.ewalletType === 'vnpay' ? (
                 'ĐẶT HÀNG & THANH TOÁN VNPAY'
               ) : formData.paymentMethod === 'ewallet' && formData.ewalletType === 'momo' ? (
                 'ĐẶT HÀNG & THANH TOÁN MOMO'
+              ) : formData.paymentMethod === 'atm' ? (
+                'XÁC THỰC OTP & THANH TOÁN THẺ NCB'
               ) : (
                 'CONTINUE'
               )}
@@ -1396,6 +1410,29 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
           </div>
         </aside>
       </main>
+
+      {/* NCB Smart OTP Modal (1-Chạm cho Thẻ ATM Nội Địa) */}
+      <NcbOtpModal
+        isOpen={showNcbOtpModal}
+        onClose={() => setShowNcbOtpModal(false)}
+        amountVND={totalVND}
+        cardNumber={savedAtm[0]?.accountNumber || '9704 •••• •••• 1432'}
+        cardHolder={savedAtm[0]?.accountHolder || formData.firstName || 'NGUYEN VAN A'}
+        bankName={savedAtm[0]?.bankName || 'NCB (Ngân hàng Quốc Dân - Sandbox)'}
+        shippingAddress={buildShippingAddress() || 'Địa chỉ nhận sách Boko'}
+        phone={formData.telephone}
+        email={formData.email}
+        customerName={`${formData.firstName} ${formData.lastName}`.trim()}
+        couponCode={appliedDiscountCode}
+        items={displayItems.map((item) => ({
+          book_id: typeof item.book.id === 'number' ? item.book.id : 1,
+          title: item.book.title,
+          price: item.book.priceVND,
+          quantity: item.quantity,
+        }))}
+        onSuccess={handleAtmPaymentSuccess}
+      />
     </div>
   );
 };
+

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -345,4 +346,113 @@ func CancelOrder(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusOK, gin.H{"message": "Đã huỷ đơn hàng!"})
+}
+
+// VerifyAtmOtpPayment — Xác thực OTP Thẻ ATM Nội Địa NCB 1-chạm và hoàn tất thanh toán
+func VerifyAtmOtpPayment(c *gin.Context) {
+	var input struct {
+		Amount          float64 `json:"amount"`
+		CardNumber      string  `json:"card_number"`
+		CardHolder      string  `json:"card_holder"`
+		BankName        string  `json:"bank_name"`
+		Otp             string  `json:"otp"`
+		ShippingAddress string  `json:"shipping_address"`
+		Phone           string  `json:"phone"`
+		Email           string  `json:"email"`
+		CustomerName    string  `json:"customer_name"`
+		CouponCode      string  `json:"coupon_code"`
+		Items           []struct {
+			BookID   uint    `json:"book_id"`
+			Title    string  `json:"title"`
+			Price    float64 `json:"price"`
+			Quantity int     `json:"quantity"`
+		} `json:"items"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
+
+	// 1. Kiểm tra mã OTP: Sandbox test OTP là 123456
+	if input.Otp != "123456" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Mã xác thực OTP không chính xác. Vui lòng nhập mã OTP test: 123456",
+		})
+		return
+	}
+
+	// 2. Xác định user_id: ưu tiên từ JWT token đã xác thực, nếu không có thì liên kết qua email hoặc tài khoản khách
+	var currentUserID uint
+	if val, exists := c.Get("user_id"); exists {
+		if uid, ok := val.(uint); ok {
+			currentUserID = uid
+		}
+	}
+
+	if currentUserID == 0 {
+		targetEmail := input.Email
+		if targetEmail == "" {
+			targetEmail = "guest@boko.com"
+		}
+		var user models.User
+		if err := config.DB.Where("email = ?", targetEmail).First(&user).Error; err != nil {
+			name := input.CustomerName
+			if name == "" {
+				name = "Khách mua hàng"
+			}
+			user = models.User{
+				Email: targetEmail,
+				Name:  name,
+				Role:  "customer",
+			}
+			config.DB.Create(&user)
+		}
+		currentUserID = user.ID
+	}
+
+	// 3. Tạo mã giao dịch NCB
+	transID := fmt.Sprintf("NCB_OTP_%d", time.Now().Unix())
+
+	// 4. Tạo đơn hàng với trạng thái paid
+	order := models.Order{
+		UserID:          currentUserID,
+		Total:           input.Amount,
+		Status:          "shipping",
+		PaymentStatus:   "paid",
+		PaymentMethod:   "atm",
+		PaymentTransID:  transID,
+		PaymentOrderID:  transID,
+		ShippingAddress: input.ShippingAddress,
+		Phone:           input.Phone,
+		CouponCode:      input.CouponCode,
+		CreatedAt:       time.Now(),
+	}
+
+	if err := config.DB.Create(&order).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo đơn hàng: " + err.Error()})
+		return
+	}
+
+	// 5. Lưu các mặt hàng trong đơn
+	for _, it := range input.Items {
+		orderItem := models.OrderItem{
+			OrderID:  order.ID,
+			BookID:   it.BookID,
+			Title:    it.Title,
+			Price:    it.Price,
+			Quantity: it.Quantity,
+		}
+		config.DB.Create(&orderItem)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":        true,
+		"message":        "Xác thực OTP thành công! Đơn hàng đã được thanh toán qua Thẻ ATM NCB.",
+		"order_id":       order.ID,
+		"transaction_id": transID,
+		"total":          order.Total,
+		"payment_status": order.PaymentStatus,
+		"status":         order.Status,
+	})
 }

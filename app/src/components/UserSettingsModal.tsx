@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, ShippingAddress, SavedPaymentMethod } from '../types';
 import logoImg from '../assets/images/app_main_logo_1786578722639.jpg';
 import { OrderProgressStepper } from './OrderProgressStepper';
@@ -24,6 +24,7 @@ const PRESET_AVATARS = [
 ];
 
 const VIETNAM_BANKS = [
+  { id: 'ncb', name: 'NCB (Ngân hàng Quốc Dân - Sandbox)', logo: 'account_balance' },
   { id: 'vcb', name: 'Vietcombank (VCB)', logo: 'account_balance' },
   { id: 'mbb', name: 'MB Bank (Quân Đội)', logo: 'account_balance' },
   { id: 'tcb', name: 'Techcombank', logo: 'account_balance' },
@@ -66,12 +67,104 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const [cardCvv, setCardCvv] = useState('');
   const [walletPhone, setWalletPhone] = useState('');
   const [walletName, setWalletName] = useState('');
-  const [selectedBank, setSelectedBank] = useState('Vietcombank (VCB)');
+  const [selectedBank, setSelectedBank] = useState('NCB (Ngân hàng Quốc Dân - Sandbox)');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountHolder, setBankAccountHolder] = useState('');
   const [isDefaultMethod, setIsDefaultMethod] = useState(false);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Tab Bar Mouse Drag-to-Scroll & Navigation
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const [isDraggingTabs, setIsDraggingTabs] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragScrollLeft, setDragScrollLeft] = useState(0);
+  const [hasMovedDuringDrag, setHasMovedDuringDrag] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateTabScrollIndicators = () => {
+    if (!tabsContainerRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = tabsContainerRef.current;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    updateTabScrollIndicators();
+    const handleResize = () => updateTabScrollIndicators();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (tabsContainerRef.current) {
+      const activeBtn = tabsContainerRef.current.querySelector<HTMLElement>('[data-active-tab="true"]');
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+      setTimeout(updateTabScrollIndicators, 250);
+    }
+  }, [activeTab]);
+
+  const handleTabMouseDown = (e: React.MouseEvent) => {
+    if (!tabsContainerRef.current) return;
+    setIsDraggingTabs(true);
+    setHasMovedDuringDrag(false);
+    setDragStartX(e.pageX - tabsContainerRef.current.offsetLeft);
+    setDragScrollLeft(tabsContainerRef.current.scrollLeft);
+  };
+
+  const handleTabMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingTabs || !tabsContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - tabsContainerRef.current.offsetLeft;
+    const walk = (x - dragStartX) * 1.5;
+    if (Math.abs(walk) > 5) {
+      setHasMovedDuringDrag(true);
+    }
+    tabsContainerRef.current.scrollLeft = dragScrollLeft - walk;
+    updateTabScrollIndicators();
+  };
+
+  const handleTabMouseUp = () => {
+    setIsDraggingTabs(false);
+    setTimeout(() => {
+      setHasMovedDuringDrag(false);
+    }, 100);
+    updateTabScrollIndicators();
+  };
+
+  const handleTabMouseLeave = () => {
+    if (isDraggingTabs) {
+      setIsDraggingTabs(false);
+      setTimeout(() => {
+        setHasMovedDuringDrag(false);
+      }, 100);
+      updateTabScrollIndicators();
+    }
+  };
+
+  const handleTabWheel = (e: React.WheelEvent) => {
+    if (!tabsContainerRef.current) return;
+    if (e.deltaY !== 0) {
+      tabsContainerRef.current.scrollLeft += e.deltaY;
+      updateTabScrollIndicators();
+    }
+  };
+
+  const scrollTabsDirection = (direction: 'left' | 'right') => {
+    if (!tabsContainerRef.current) return;
+    const offset = direction === 'left' ? -180 : 180;
+    tabsContainerRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    setTimeout(updateTabScrollIndicators, 300);
+  };
+
+  const handleSelectTab = (tab: SettingsTab) => {
+    if (hasMovedDuringDrag) return;
+    setActiveTab(tab);
+    setShowAddPaymentForm(false);
+  };
 
   // Tab 4: Orders Management
   const [ordersList, setOrdersList] = useState<any[]>(() => {
@@ -388,12 +481,12 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-xs animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800 my-auto flex flex-col max-h-[90vh]">
-        {/* Header with Boko Logo & Title */}
-        <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 px-6 py-5 text-white flex items-center justify-between border-b border-amber-500/30">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-hidden">
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800 flex flex-col h-[90vh] max-h-[850px]">
+        {/* Header with Boko Logo & Title - CỐ ĐỊNH (LOCKED FIXED) */}
+        <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 px-6 py-5 text-white flex items-center justify-between border-b border-amber-500/30 shrink-0 select-none">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-slate-900 border border-amber-400/50 p-0.5 shadow-md flex items-center justify-center overflow-hidden">
+            <div className="w-11 h-11 rounded-xl bg-slate-900 border border-amber-400/50 p-0.5 shadow-md flex items-center justify-center overflow-hidden shrink-0">
               <img
                 src={logoImg}
                 alt="Boko"
@@ -418,97 +511,130 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
 
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors border border-white/15 cursor-pointer"
+            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors border border-white/15 cursor-pointer shrink-0"
             title="Đóng cài đặt"
           >
             <i className="fa-solid fa-xmark text-base"></i>
           </button>
         </div>
 
-        {/* Tab Navigation Navigation Bar */}
-        <div className="flex items-center border-b border-slate-200 bg-slate-50/90 px-4 sm:px-6 gap-2 overflow-x-auto hide-scrollbar">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('profile');
-              setShowAddPaymentForm(false);
-            }}
-            className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'profile'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-            }`}
-          >
-            <i className="fa-solid fa-user text-xs"></i>
-            <span>Thông Tin Cơ Bản</span>
-          </button>
+        {/* Tab Navigation Bar - CỐ ĐỊNH (LOCKED FIXED) & KÉO CHUỘT ĐỂ CUỘN (DRAG TO SCROLL) */}
+        <div className="relative border-b border-slate-200 bg-slate-50/95 shrink-0 select-none">
+          {/* Nút cuộn sang trái (hiện khi có thể cuộn lùi lại) */}
+          {canScrollLeft && (
+            <button
+              type="button"
+              onClick={() => scrollTabsDirection('left')}
+              className="absolute left-0 top-0 bottom-0 z-20 px-2 bg-gradient-to-r from-slate-100 via-slate-100/90 to-transparent flex items-center justify-center text-slate-500 hover:text-blue-600 transition-colors cursor-pointer shadow-xs"
+              title="Cuộn sang trái"
+            >
+              <i className="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('orders');
-              setShowAddPaymentForm(false);
-            }}
-            className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'orders'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+          {/* Danh sách Tab hỗ trợ giữ chuột kéo sang trái/phải */}
+          <div
+            ref={tabsContainerRef}
+            onMouseDown={handleTabMouseDown}
+            onMouseMove={handleTabMouseMove}
+            onMouseUp={handleTabMouseUp}
+            onMouseLeave={handleTabMouseLeave}
+            onWheel={handleTabWheel}
+            onScroll={updateTabScrollIndicators}
+            className={`flex items-center px-4 sm:px-6 gap-2 overflow-x-auto hide-scrollbar transition-colors ${
+              isDraggingTabs ? 'cursor-grabbing' : 'cursor-grab'
             }`}
           >
-            <i className="fa-solid fa-box-archive text-xs"></i>
-            <span>Đơn Hàng Của Tôi</span>
-            {ordersList.length > 0 && (
-              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">
-                {ordersList.length}
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              data-active-tab={activeTab === 'profile'}
+              onClick={() => handleSelectTab('profile')}
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                activeTab === 'profile'
+                  ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <i className="fa-solid fa-user text-xs"></i>
+              <span className="whitespace-nowrap">Thông Tin Cơ Bản</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('address');
-              setShowAddPaymentForm(false);
-            }}
-            className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'address'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-            }`}
-          >
-            <i className="fa-solid fa-truck-fast text-xs"></i>
-            <span>Địa Chỉ Giao Hàng</span>
-          </button>
+            <button
+              type="button"
+              data-active-tab={activeTab === 'orders'}
+              onClick={() => handleSelectTab('orders')}
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                activeTab === 'orders'
+                  ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <i className="fa-solid fa-box-archive text-xs"></i>
+              <span className="whitespace-nowrap">Đơn Hàng Của Tôi</span>
+              {ordersList.length > 0 && (
+                <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">
+                  {ordersList.length}
+                </span>
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('payments')}
-            className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'payments'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-            }`}
-          >
-            <i className="fa-solid fa-wallet text-xs"></i>
-            <span>Phương Thức Thanh Toán</span>
-            {paymentMethods.length > 0 && (
-              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">
-                {paymentMethods.length}
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              data-active-tab={activeTab === 'address'}
+              onClick={() => handleSelectTab('address')}
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                activeTab === 'address'
+                  ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <i className="fa-solid fa-truck-fast text-xs"></i>
+              <span className="whitespace-nowrap">Địa Chỉ Giao Hàng</span>
+            </button>
+
+            <button
+              type="button"
+              data-active-tab={activeTab === 'payments'}
+              onClick={() => handleSelectTab('payments')}
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                activeTab === 'payments'
+                  ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <i className="fa-solid fa-wallet text-xs"></i>
+              <span className="whitespace-nowrap">Phương Thức Thanh Toán</span>
+              {paymentMethods.length > 0 && (
+                <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">
+                  {paymentMethods.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Nút cuộn sang phải (kéo chuột sang trái hoặc bấm nút này để xem Phương thức thanh toán) */}
+          {canScrollRight && (
+            <button
+              type="button"
+              onClick={() => scrollTabsDirection('right')}
+              className="absolute right-0 top-0 bottom-0 z-20 px-2 bg-gradient-to-l from-slate-100 via-slate-100/90 to-transparent flex items-center justify-center text-slate-500 hover:text-blue-600 transition-colors cursor-pointer shadow-xs"
+              title="Kéo chuột sang trái hoặc bấm để xem tab tiếp theo"
+            >
+              <i className="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          )}
         </div>
 
         {/* Toast Feedback */}
         {toastMsg && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn shadow-2xs">
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn shadow-2xs shrink-0">
             <i className="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
             <span>{toastMsg}</span>
           </div>
         )}
 
-        {/* Modal Body Content Container */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-7">
+        {/* Modal Body Content Container - CUỘN ĐỘC LẬP (DANH SÁCH ĐƠN HÀNG CUỘN TẠI ĐÂY) */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-7">
           {/* =========================================================
               TAB 1: THÔNG TIN CƠ BẢN
              ========================================================= */}
