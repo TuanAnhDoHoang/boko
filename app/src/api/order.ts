@@ -51,7 +51,7 @@ function getBackendBaseUrl(): string {
       return fromMeta.replace(/\/+$/, '');
     }
   }
-  return 'http://localhost:8200';
+  return 'http://localhost:8000';
 }
 
 function authHeaders(): Record<string, string> {
