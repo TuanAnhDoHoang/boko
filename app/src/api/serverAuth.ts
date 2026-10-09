@@ -2,7 +2,7 @@ import { User } from '../types';
 
 /**
  * Backend Host Configuration
- * Can be set via VITE_BACKEND_URL in .env (e.g. 'https://api.boko.vn' or 'http://localhost:8000')
+ * Can be set via VITE_BACKEND_URL in .env (e.g. 'https://api.boko.vn' or 'http://localhost:8080')
  */
 export function getBackendBaseUrl(): string {
   const url = (import.meta.env.VITE_BACKEND_URL || '').trim();
