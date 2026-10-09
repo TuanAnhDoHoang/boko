@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, ShippingAddress, SavedPaymentMethod } from '../types';
 import logoImg from '../assets/images/app_main_logo_1786578722639.jpg';
+import { OrderProgressStepper } from './OrderProgressStepper';
+import { getMyOrdersApi } from '../api/order';
 
-export type SettingsTab = 'profile' | 'address' | 'payments';
+export type SettingsTab = 'profile' | 'orders' | 'address' | 'payments';
 
 interface UserSettingsModalProps {
   isOpen: boolean;
@@ -22,6 +24,7 @@ const PRESET_AVATARS = [
 ];
 
 const VIETNAM_BANKS = [
+  { id: 'ncb', name: 'NCB (Ngân hàng Quốc Dân - Sandbox)', logo: 'account_balance' },
   { id: 'vcb', name: 'Vietcombank (VCB)', logo: 'account_balance' },
   { id: 'mbb', name: 'MB Bank (Quân Đội)', logo: 'account_balance' },
   { id: 'tcb', name: 'Techcombank', logo: 'account_balance' },
@@ -64,12 +67,190 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const [cardCvv, setCardCvv] = useState('');
   const [walletPhone, setWalletPhone] = useState('');
   const [walletName, setWalletName] = useState('');
-  const [selectedBank, setSelectedBank] = useState('Vietcombank (VCB)');
+  const [selectedBank, setSelectedBank] = useState('NCB (Ngân hàng Quốc Dân - Sandbox)');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountHolder, setBankAccountHolder] = useState('');
   const [isDefaultMethod, setIsDefaultMethod] = useState(false);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Tab Bar Mouse Drag-to-Scroll & Navigation
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const [isDraggingTabs, setIsDraggingTabs] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragScrollLeft, setDragScrollLeft] = useState(0);
+  const [hasMovedDuringDrag, setHasMovedDuringDrag] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateTabScrollIndicators = () => {
+    if (!tabsContainerRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = tabsContainerRef.current;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    updateTabScrollIndicators();
+    const handleResize = () => updateTabScrollIndicators();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (tabsContainerRef.current) {
+      const activeBtn = tabsContainerRef.current.querySelector<HTMLElement>('[data-active-tab="true"]');
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+      setTimeout(updateTabScrollIndicators, 250);
+    }
+  }, [activeTab]);
+
+  const handleTabMouseDown = (e: React.MouseEvent) => {
+    if (!tabsContainerRef.current) return;
+    setIsDraggingTabs(true);
+    setHasMovedDuringDrag(false);
+    setDragStartX(e.pageX - tabsContainerRef.current.offsetLeft);
+    setDragScrollLeft(tabsContainerRef.current.scrollLeft);
+  };
+
+  const handleTabMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingTabs || !tabsContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - tabsContainerRef.current.offsetLeft;
+    const walk = (x - dragStartX) * 1.5;
+    if (Math.abs(walk) > 5) {
+      setHasMovedDuringDrag(true);
+    }
+    tabsContainerRef.current.scrollLeft = dragScrollLeft - walk;
+    updateTabScrollIndicators();
+  };
+
+  const handleTabMouseUp = () => {
+    setIsDraggingTabs(false);
+    setTimeout(() => {
+      setHasMovedDuringDrag(false);
+    }, 100);
+    updateTabScrollIndicators();
+  };
+
+  const handleTabMouseLeave = () => {
+    if (isDraggingTabs) {
+      setIsDraggingTabs(false);
+      setTimeout(() => {
+        setHasMovedDuringDrag(false);
+      }, 100);
+      updateTabScrollIndicators();
+    }
+  };
+
+  const handleTabWheel = (e: React.WheelEvent) => {
+    if (!tabsContainerRef.current) return;
+    if (e.deltaY !== 0) {
+      tabsContainerRef.current.scrollLeft += e.deltaY;
+      updateTabScrollIndicators();
+    }
+  };
+
+  const scrollTabsDirection = (direction: 'left' | 'right') => {
+    if (!tabsContainerRef.current) return;
+    const offset = direction === 'left' ? -180 : 180;
+    tabsContainerRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    setTimeout(updateTabScrollIndicators, 300);
+  };
+
+  const handleSelectTab = (tab: SettingsTab) => {
+    if (hasMovedDuringDrag) return;
+    setActiveTab(tab);
+    setShowAddPaymentForm(false);
+  };
+
+  // Tab 4: Orders Management
+  const [ordersList, setOrdersList] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('boko_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'orders' || isOpen) {
+      setIsLoadingOrders(true);
+      getMyOrdersApi(user?.email)
+        .then((backendOrders) => {
+          if (Array.isArray(backendOrders) && backendOrders.length > 0) {
+            const localSaved = (() => {
+              try {
+                return JSON.parse(localStorage.getItem('boko_orders') || '[]');
+              } catch {
+                return [];
+              }
+            })();
+
+            const merged = [...localSaved];
+            backendOrders.forEach((bo: any) => {
+              const exists = merged.some((lo: any) => lo.dbId === bo.id || lo.id === `BST-${bo.id}` || lo.id === bo.id);
+              if (!exists) {
+                merged.push({
+                  id: `BST-${bo.id}`,
+                  dbId: bo.id,
+                  date: new Date(bo.created_at || Date.now()).toLocaleDateString('vi-VN'),
+                  items: (bo.items || []).map((it: any) => ({
+                    book: {
+                      id: String(it.book_id || it.id),
+                      title: it.title || 'Sách',
+                      author: 'Boko Publisher',
+                      priceVND: it.price || 0,
+                      priceEUR: Math.round((it.price || 0) / 25000),
+                    },
+                    quantity: it.quantity || 1,
+                  })),
+                  totalVND: bo.total,
+                  totalEUR: Math.round(bo.total / 25000),
+                  currency: 'VND',
+                  status: bo.status || 'shipping',
+                  paymentStatus: bo.payment_status || 'unpaid',
+                  paymentMethod: bo.payment_method || 'cod',
+                  shippingAddress: bo.shipping_address,
+                  phone: bo.phone,
+                });
+              }
+            });
+
+            setOrdersList(merged);
+            localStorage.setItem('boko_orders', JSON.stringify(merged));
+          }
+        })
+        .catch((err) => console.warn('Could not fetch backend orders:', err))
+        .finally(() => setIsLoadingOrders(false));
+    }
+  }, [activeTab, isOpen, user?.email]);
+
+  const handleUpdateOrderStatus = (orderId: string | number, updatedStatus: string, updatedPayment: string) => {
+    setOrdersList((prev) => {
+      const updated = prev.map((ord) => {
+        if (ord.id === orderId || ord.dbId === orderId || String(ord.id) === String(orderId)) {
+          return {
+            ...ord,
+            status: updatedStatus,
+            paymentStatus: updatedPayment,
+          };
+        }
+        return ord;
+      });
+      try {
+        localStorage.setItem('boko_orders', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+    showToast('Cập nhật trạng thái đơn hàng thành công!');
+  };
 
   // Sync state with user and initial tab
   useEffect(() => {
@@ -300,12 +481,12 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-xs animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800 my-auto flex flex-col max-h-[90vh]">
-        {/* Header with Boko Logo & Title */}
-        <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 px-6 py-5 text-white flex items-center justify-between border-b border-amber-500/30">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-hidden">
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800 flex flex-col h-[90vh] max-h-[850px]">
+        {/* Header with Boko Logo & Title - CỐ ĐỊNH (LOCKED FIXED) */}
+        <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 px-6 py-5 text-white flex items-center justify-between border-b border-amber-500/30 shrink-0 select-none">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-slate-900 border border-amber-400/50 p-0.5 shadow-md flex items-center justify-center overflow-hidden">
+            <div className="w-11 h-11 rounded-xl bg-slate-900 border border-amber-400/50 p-0.5 shadow-md flex items-center justify-center overflow-hidden shrink-0">
               <img
                 src={logoImg}
                 alt="Boko"
@@ -330,76 +511,130 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
 
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors border border-white/15 cursor-pointer"
+            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors border border-white/15 cursor-pointer shrink-0"
             title="Đóng cài đặt"
           >
             <i className="fa-solid fa-xmark text-base"></i>
           </button>
         </div>
 
-        {/* Tab Navigation Navigation Bar */}
-        <div className="flex items-center border-b border-slate-200 bg-slate-50/90 px-4 sm:px-6 gap-2 overflow-x-auto hide-scrollbar">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('profile');
-              setShowAddPaymentForm(false);
-            }}
-            className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'profile'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-            }`}
-          >
-            <i className="fa-solid fa-user text-xs"></i>
-            <span>Thông Tin Cơ Bản</span>
-          </button>
+        {/* Tab Navigation Bar - CỐ ĐỊNH (LOCKED FIXED) & KÉO CHUỘT ĐỂ CUỘN (DRAG TO SCROLL) */}
+        <div className="relative border-b border-slate-200 bg-slate-50/95 shrink-0 select-none">
+          {/* Nút cuộn sang trái (hiện khi có thể cuộn lùi lại) */}
+          {canScrollLeft && (
+            <button
+              type="button"
+              onClick={() => scrollTabsDirection('left')}
+              className="absolute left-0 top-0 bottom-0 z-20 px-2 bg-gradient-to-r from-slate-100 via-slate-100/90 to-transparent flex items-center justify-center text-slate-500 hover:text-blue-600 transition-colors cursor-pointer shadow-xs"
+              title="Cuộn sang trái"
+            >
+              <i className="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('address');
-              setShowAddPaymentForm(false);
-            }}
-            className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'address'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+          {/* Danh sách Tab hỗ trợ giữ chuột kéo sang trái/phải */}
+          <div
+            ref={tabsContainerRef}
+            onMouseDown={handleTabMouseDown}
+            onMouseMove={handleTabMouseMove}
+            onMouseUp={handleTabMouseUp}
+            onMouseLeave={handleTabMouseLeave}
+            onWheel={handleTabWheel}
+            onScroll={updateTabScrollIndicators}
+            className={`flex items-center px-4 sm:px-6 gap-2 overflow-x-auto hide-scrollbar transition-colors ${
+              isDraggingTabs ? 'cursor-grabbing' : 'cursor-grab'
             }`}
           >
-            <i className="fa-solid fa-truck-fast text-xs"></i>
-            <span>Địa Chỉ Giao Hàng</span>
-          </button>
+            <button
+              type="button"
+              data-active-tab={activeTab === 'profile'}
+              onClick={() => handleSelectTab('profile')}
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                activeTab === 'profile'
+                  ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <i className="fa-solid fa-user text-xs"></i>
+              <span className="whitespace-nowrap">Thông Tin Cơ Bản</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('payments')}
-            className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'payments'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
-            }`}
-          >
-            <i className="fa-solid fa-wallet text-xs"></i>
-            <span>Phương Thức Thanh Toán</span>
-            {paymentMethods.length > 0 && (
-              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">
-                {paymentMethods.length}
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              data-active-tab={activeTab === 'orders'}
+              onClick={() => handleSelectTab('orders')}
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                activeTab === 'orders'
+                  ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <i className="fa-solid fa-box-archive text-xs"></i>
+              <span className="whitespace-nowrap">Đơn Hàng Của Tôi</span>
+              {ordersList.length > 0 && (
+                <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">
+                  {ordersList.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              data-active-tab={activeTab === 'address'}
+              onClick={() => handleSelectTab('address')}
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                activeTab === 'address'
+                  ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <i className="fa-solid fa-truck-fast text-xs"></i>
+              <span className="whitespace-nowrap">Địa Chỉ Giao Hàng</span>
+            </button>
+
+            <button
+              type="button"
+              data-active-tab={activeTab === 'payments'}
+              onClick={() => handleSelectTab('payments')}
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                activeTab === 'payments'
+                  ? 'border-blue-600 text-blue-600 bg-white shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
+            >
+              <i className="fa-solid fa-wallet text-xs"></i>
+              <span className="whitespace-nowrap">Phương Thức Thanh Toán</span>
+              {paymentMethods.length > 0 && (
+                <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">
+                  {paymentMethods.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Nút cuộn sang phải (kéo chuột sang trái hoặc bấm nút này để xem Phương thức thanh toán) */}
+          {canScrollRight && (
+            <button
+              type="button"
+              onClick={() => scrollTabsDirection('right')}
+              className="absolute right-0 top-0 bottom-0 z-20 px-2 bg-gradient-to-l from-slate-100 via-slate-100/90 to-transparent flex items-center justify-center text-slate-500 hover:text-blue-600 transition-colors cursor-pointer shadow-xs"
+              title="Kéo chuột sang trái hoặc bấm để xem tab tiếp theo"
+            >
+              <i className="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          )}
         </div>
 
         {/* Toast Feedback */}
         {toastMsg && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn shadow-2xs">
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn shadow-2xs shrink-0">
             <i className="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
             <span>{toastMsg}</span>
           </div>
         )}
 
-        {/* Modal Body Content Container */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-7">
+        {/* Modal Body Content Container - CUỘN ĐỘC LẬP (DANH SÁCH ĐƠN HÀNG CUỘN TẠI ĐÂY) */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-7">
           {/* =========================================================
               TAB 1: THÔNG TIN CƠ BẢN
              ========================================================= */}
@@ -1071,6 +1306,171 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                   ))
                 )}
               </div>
+            </div>
+          )}
+
+          {/* =========================================================
+              TAB 4: ĐƠN HÀNG CỦA TÔI
+             ========================================================= */}
+          {activeTab === 'orders' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+                <div>
+                  <h4 className="font-display font-bold text-base text-slate-900">
+                    Lịch Sử & Tiến Trình Đơn Hàng
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Theo dõi chặng đường shipper giao sách và bấm xác nhận khi đã nhận được bưu kiện
+                  </p>
+                </div>
+                {ordersList.length > 0 && (
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    Tổng cộng: {ordersList.length} đơn hàng
+                  </span>
+                )}
+              </div>
+
+              {isLoadingOrders && ordersList.length === 0 ? (
+                <div className="text-center py-16 space-y-3">
+                  <span className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin inline-block"></span>
+                  <p className="text-xs font-semibold text-slate-500">Đang tải danh sách đơn hàng...</p>
+                </div>
+              ) : ordersList.length === 0 ? (
+                <div className="text-center py-16 px-4 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-2xl">
+                    <i className="fa-solid fa-box-open"></i>
+                  </div>
+                  <h5 className="font-display font-bold text-sm text-slate-800">
+                    Bạn chưa có đơn hàng nào
+                  </h5>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Hãy dạo quanh tủ sách Boko, chọn những tác phẩm bạn yêu thích và tiến hành đặt hàng để theo dõi tại đây!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-blue-200 cursor-pointer"
+                  >
+                    Khám Phá Tủ Sách Ngay
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {ordersList.map((order: any, idx: number) => {
+                    const isCod = (order.paymentMethod || 'cod').toLowerCase() === 'cod';
+                    const isCompleted = order.status === 'completed';
+
+                    return (
+                      <div
+                        key={order.id || idx}
+                        className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-5 hover:border-slate-300 transition-all"
+                      >
+                        {/* Order Header */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold">
+                              <i className="fa-solid fa-receipt"></i>
+                            </span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h5 className="font-display font-bold text-sm text-slate-900 font-mono">
+                                  {order.id}
+                                </h5>
+                                <span className="text-[10px] text-slate-400">• {order.date}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Hình thức:{' '}
+                                <strong className="text-slate-700 uppercase">
+                                  {isCod
+                                    ? 'Thanh toán khi nhận hàng (COD)'
+                                    : order.paymentMethod === 'vnpay'
+                                    ? 'VNPAY Sandbox'
+                                    : order.paymentMethod === 'momo'
+                                    ? 'Ví MoMo'
+                                    : order.paymentMethod === 'paypal'
+                                    ? 'PayPal'
+                                    : order.paymentMethod || 'COD'}
+                                </strong>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {isCompleted ? (
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1.5 border border-emerald-200">
+                                <i className="fa-solid fa-circle-check text-emerald-600"></i>
+                                <span>Đã Hoàn Thành</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 flex items-center gap-1.5 border border-blue-200">
+                                <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                                <span>Đang Giao Hàng</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Order Items Summary */}
+                        {order.items && order.items.length > 0 && (
+                          <div className="space-y-2 py-1">
+                            <p className="text-xs font-bold text-slate-700">Các cuốn sách đã mua:</p>
+                            <div className="space-y-1.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                              {order.items.map((it: any, iIdx: number) => (
+                                <div key={iIdx} className="flex justify-between items-center text-xs">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="font-bold text-blue-600 shrink-0">
+                                      {it.quantity}x
+                                    </span>
+                                    <span className="font-medium text-slate-800 truncate">
+                                      {it.book?.title || it.title || 'Sách'}
+                                    </span>
+                                  </div>
+                                  <span className="font-bold text-slate-900 shrink-0 ml-2">
+                                    {((it.book?.priceVND || it.price || 0) * (it.quantity || 1)).toLocaleString('vi-VN')} ₫
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Total & Shipping Info */}
+                        <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 pt-1">
+                          <div>
+                            {order.shippingAddress && (
+                              <p className="text-[11px] text-slate-500">
+                                Giao đến: <strong className="text-slate-700">{order.shippingAddress}</strong>
+                                {order.phone ? ` • SĐT: ${order.phone}` : ''}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right ml-auto">
+                            <span className="text-xs text-slate-500 mr-1.5">Tổng tiền:</span>
+                            <span className="text-base font-bold text-slate-900 font-display">
+                              {(order.totalVND || order.total || 0).toLocaleString('vi-VN')} ₫
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Realtime 4-step Progress Stepper */}
+                        <div className="pt-2">
+                          <OrderProgressStepper
+                            orderId={order.dbId || order.id}
+                            status={order.status || 'shipping'}
+                            paymentMethod={order.paymentMethod || 'cod'}
+                            paymentStatus={order.paymentStatus || 'unpaid'}
+                            totalVND={order.totalVND || order.total}
+                            compact={false}
+                            onConfirmSuccess={() => {
+                              handleUpdateOrderStatus(order.id, 'completed', 'paid');
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

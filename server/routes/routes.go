@@ -54,6 +54,14 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/api/payment/paypal/create", middleware.AuthOptional, controllers.CreatePaypalPayment)
 	r.POST("/api/payment/paypal/capture", middleware.AuthOptional, controllers.CapturePaypalPayment)
 
+	// COD & Order Tracking Routes (hỗ trợ cả khách đăng nhập và khách vãng lai)
+	r.POST("/api/orders/cod/create", middleware.AuthOptional, controllers.CreateCodOrder)
+	r.POST("/api/orders/:id/confirm-receipt", middleware.AuthOptional, controllers.ConfirmReceiptOrder)
+	r.GET("/api/orders/my-orders", middleware.AuthOptional, controllers.GetMyOrders)
+
+	// Thẻ ATM Nội Địa NCB — Xác thực OTP 1-chạm
+	r.POST("/api/payment/atm/verify-otp", middleware.AuthOptional, controllers.VerifyAtmOtpPayment)
+
 	// ==================== PROTECTED ROUTES ====================
 
 	auth := r.Group("/api")

@@ -108,6 +108,7 @@ export interface User {
 
 export interface Order {
   id: string;
+  dbId?: number;
   date: string;
   items: CartItem[];
   customer: CheckoutFormState;
@@ -123,6 +124,11 @@ export interface Order {
   totalVND: number;
   currency: Currency;
   discountCode?: string;
+  status?: 'pending' | 'confirmed' | 'shipping' | 'completed' | 'cancelled';
+  paymentStatus?: 'unpaid' | 'paid' | 'failed';
+  paymentMethod?: string;
+  shippingAddress?: string;
+  phone?: string;
 }
 
 export interface UsedBookListing {

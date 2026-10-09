@@ -447,18 +447,6 @@ export default function App() {
           }
         />
 
-        {/* Payment Callback Route for PayPal (public, PayPal redirect về sau khi duyệt) */}
-        <Route
-          path="/payment/paypal-callback"
-          element={
-            <PaypalCallback
-              onOrderSuccessFinished={() => {
-                setCart([]);
-              }}
-            />
-          }
-        />
-
         {/* Catch-all fallback Route -> If user not logged in, show RequireAuth; else redirect to / */}
         <Route
           path="*"
@@ -528,6 +516,10 @@ export default function App() {
           setIsOrderSuccessOpen(false);
           navigate('/');
           window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenOrders={() => {
+          setIsOrderSuccessOpen(false);
+          handleOpenSettings('orders');
         }}
       />
 

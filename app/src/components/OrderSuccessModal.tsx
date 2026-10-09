@@ -1,20 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Order } from '../types';
+import { OrderProgressStepper } from './OrderProgressStepper';
 
 interface OrderSuccessModalProps {
   order: Order | null;
   isOpen: boolean;
   onClose: () => void;
   onReturnToLibrary: () => void;
+  onOpenOrders?: () => void;
 }
 
 export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
   order,
   isOpen,
   onClose,
-  onReturnToLibrary
+  onReturnToLibrary,
+  onOpenOrders,
 }) => {
   if (!isOpen || !order) return null;
+
+  const [currentOrderStatus, setCurrentOrderStatus] = useState(order.status || 'shipping');
+  const [currentPaymentStatus, setCurrentPaymentStatus] = useState(order.paymentStatus || 'unpaid');
 
   const isEUR = order.currency === 'EUR';
   const formatPrice = (eur: number, vnd: number) =>
@@ -39,6 +45,19 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
           </p>
         </div>
 
+        {/* Realtime 4-step Progress Tracker with Receive confirmation */}
+        <OrderProgressStepper
+          orderId={order.dbId || order.id}
+          status={currentOrderStatus}
+          paymentMethod={order.customer?.paymentMethod || 'cod'}
+          paymentStatus={currentPaymentStatus}
+          totalVND={order.totalVND}
+          onConfirmSuccess={() => {
+            setCurrentOrderStatus('completed');
+            setCurrentPaymentStatus('paid');
+          }}
+        />
+
         {/* Customer & Shipping Summary */}
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs sm:text-sm space-y-1 font-body text-slate-700">
           <p className="font-bold text-slate-900">
@@ -60,7 +79,7 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
               : order.customer.paymentMethod === 'paypal'
               ? 'PayPal (thanh toán quốc tế)'
               : order.customer.paymentMethod === 'ewallet'
-              ? 'Ví Điện Tử (Momo / ZaloPay)'
+              ? 'Ví Điện Tử (Momo / ZaloPay / VNPAY)'
               : 'Chuyển Khoản Ngân Hàng'}
           </p>
         </div>
@@ -120,12 +139,27 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
 
         {/* Footer Actions */}
         <div className="pt-4 flex flex-col sm:flex-row gap-3">
+          {onOpenOrders && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenOrders();
+              }}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 py-3 px-5 rounded-lg font-label-caps text-xs tracking-wider uppercase font-bold flex items-center justify-center gap-2 border border-slate-300 transition-all cursor-pointer"
+            >
+              <i className="fa-solid fa-box-archive text-sm"></i>
+              <span>Xem Đơn Hàng Của Tôi</span>
+            </button>
+          )}
+
           <button
+            type="button"
             onClick={() => {
               onClose();
               onReturnToLibrary();
             }}
-            className="bg-blue-600 hover:bg-blue-700 w-full text-white py-3.5 px-6 rounded-lg font-label-caps text-xs tracking-wider uppercase font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-200 transition-all cursor-pointer"
+            className="bg-blue-600 hover:bg-blue-700 flex-1 text-white py-3.5 px-6 rounded-lg font-label-caps text-xs tracking-wider uppercase font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-200 transition-all cursor-pointer"
           >
             <i className="fa-solid fa-arrow-left text-sm"></i>
             <span>QUAY LẠI TỦ SÁCH</span>
