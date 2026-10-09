@@ -47,7 +47,7 @@ function getAuthToken(): string {
 
 function getBaseUrl(): string {
   const configured = getBackendBaseUrl();
-  return configured || 'http://localhost:8080';
+  return configured || 'http://localhost:8200';
 }
 
 function authHeaders(): Record<string, string> {
@@ -225,6 +225,7 @@ export interface CreateVnpayPaymentParams {
   phone?: string;
   email?: string;
   bankCode?: string;
+  paymentMethod?: string;
   redirectUrl?: string;
 }
 
@@ -264,6 +265,7 @@ export async function createVnpayPaymentApi(
       phone: params.phone || '',
       email: params.email || '',
       bank_code: params.bankCode || '',
+      payment_method: params.paymentMethod || '',
       redirect_url: params.redirectUrl || '',
     }),
   });
@@ -419,4 +421,64 @@ export async function getPaypalStatusApi(
   }
 
   return data;
+}
+
+// ==================== NCB ATM DIRECT OTP API ====================
+
+export interface VerifyAtmOtpParams {
+  amount: number;
+  cardNumber?: string;
+  cardHolder?: string;
+  bankName?: string;
+  otp: string;
+  shippingAddress?: string;
+  phone?: string;
+  email?: string;
+  customerName?: string;
+  couponCode?: string;
+  items?: Array<{
+    book_id: number;
+    title: string;
+    price: number;
+    quantity: number;
+  }>;
+}
+
+export interface VerifyAtmOtpResponse {
+  success: boolean;
+  message: string;
+  order_id: number;
+  transaction_id: string;
+  total: number;
+  payment_status: string;
+  status: string;
+}
+
+/**
+ * Xác thực mã OTP Thẻ ATM Nội Địa NCB 1-chạm
+ * Endpoint: POST /api/payment/atm/verify-otp
+ */
+export async function verifyAtmOtpPaymentApi(
+  params: VerifyAtmOtpParams
+): Promise<VerifyAtmOtpResponse> {
+  const baseUrl = getBackendBaseUrl();
+  if (!baseUrl) throw new Error('Chưa cấu hình backend (VITE_BACKEND_URL).');
+
+  const response = await fetch(`${baseUrl}/api/payment/atm/verify-otp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify(params),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Xác thực OTP thất bại: HTTP ${response.status}`);
+  }
+
+  return data as VerifyAtmOtpResponse;
 }
