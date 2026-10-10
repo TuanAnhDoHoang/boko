@@ -1,6 +1,9 @@
 package main
 
 import (
+	"log"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -61,35 +64,19 @@ func main() {
 	r.Run(":8080")
 }
 
-// seedData — tạo dữ liệu mẫu nếu database trống
+// seedData — tạo dữ liệu mẫu nếu database trống.
+// Mật khẩu của tài khoản seed KHÔNG hardcode trong code — đọc từ biến môi trường
+// (xem server/.env.example): SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD,
+// SEED_CUSTOMER_EMAIL / SEED_CUSTOMER_PASSWORD.
 func seedData() {
 	// Tạo admin nếu chưa có
-	var count int64
-	config.DB.Model(&models.User{}).Where("role = ?", "admin").Count(&count)
-	if count == 0 {
-		hashed, _ := bcrypt.GenerateFromPassword([]byte("admin123456"), bcrypt.DefaultCost)
-		config.DB.Create(&models.User{
-			Email:    "admin@boko.com",
-			Password: string(hashed), // hash đúng của "admin123456"
-			Name:     "Admin Boko",
-			Role:     "admin",
-		})
-	}
+	seedUser(getSeedEnv("SEED_ADMIN_EMAIL", "admin@boko.com"), "SEED_ADMIN_PASSWORD", "Admin Boko", "admin")
 
-	// Tạo tài khoản thử nghiệm khách hàng test@gmail.com nếu chưa có
-	var testCount int64
-	config.DB.Model(&models.User{}).Where("email = ?", "test@gmail.com").Count(&testCount)
-	if testCount == 0 {
-		hashed, _ := bcrypt.GenerateFromPassword([]byte("testpass"), bcrypt.DefaultCost)
-		config.DB.Create(&models.User{
-			Email:    "test@gmail.com",
-			Password: string(hashed),
-			Name:     "test_user",
-			Role:     "customer",
-		})
-	}
+	// Tạo tài khoản khách hàng thử nghiệm nếu chưa có
+	seedUser(getSeedEnv("SEED_CUSTOMER_EMAIL", "test@gmail.com"), "SEED_CUSTOMER_PASSWORD", "test_user", "customer")
 
 	// Tạo danh mục mẫu cùng tên với UI frontend để đồng bộ giữa backend và frontend
+	var count int64
 	config.DB.Model(&models.Category{}).Count(&count)
 	if count == 0 {
 		categories := []models.Category{
@@ -109,7 +96,10 @@ func seedData() {
 	if count == 0 {
 		// Lấy admin làm seller cho sách mẫu
 		var admin models.User
-		config.DB.Where("role = ?", "admin").First(&admin)
+		if err := config.DB.Where("role = ?", "admin").First(&admin).Error; err != nil || admin.ID == 0 {
+			log.Println("seed: bỏ qua sách mẫu vì chưa có tài khoản admin")
+			return
+		}
 
 		// Lấy danh mục theo tên UI chuẩn
 		var catTrinhTham, catVanHoc, catLichSu, catKhoaHoc, catNgheThuat models.Category
@@ -130,4 +120,54 @@ func seedData() {
 			config.DB.Create(&b)
 		}
 	}
+}
+
+// seedUser — tạo tài khoản seed nếu chưa tồn tại (so theo email).
+// Mật khẩu đọc từ biến môi trường passwordEnv (không hardcode trong code).
+// Nếu tài khoản đã tồn tại thì không đụng tới — trừ khi operator đặt
+// SEED_UPDATE_PASSWORD=true, lúc đó mật khẩu được đồng bộ lại từ env
+// (dùng sau khi chạy server/migrations/0002_seed_data.sql để cài mật khẩu
+// thật cho các tài khoản placeholder).
+func seedUser(email, passwordEnv, name, role string) {
+	var count int64
+	config.DB.Model(&models.User{}).Where("email = ?", email).Count(&count)
+
+	password := strings.TrimSpace(os.Getenv(passwordEnv))
+	if count == 0 {
+		if password == "" {
+			log.Printf("seed: bỏ qua tài khoản %s — chưa set biến môi trường %s", email, passwordEnv)
+			return
+		}
+		hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Printf("seed: không tạo được tài khoản %s: %v", email, err)
+			return
+		}
+		config.DB.Create(&models.User{
+			Email:    email,
+			Password: string(hashed),
+			Name:     name,
+			Role:     role,
+		})
+		log.Printf("seed: đã tạo tài khoản %s (%s)", email, role)
+		return
+	}
+
+	if password != "" && os.Getenv("SEED_UPDATE_PASSWORD") == "true" {
+		hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Printf("seed: không cập nhật được mật khẩu %s: %v", email, err)
+			return
+		}
+		config.DB.Model(&models.User{}).Where("email = ?", email).Update("password", string(hashed))
+		log.Printf("seed: đã đồng bộ lại mật khẩu cho %s từ %s", email, passwordEnv)
+	}
+}
+
+// getSeedEnv — đọc biến môi trường, dùng fallback khi trống
+func getSeedEnv(key, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	return fallback
 }
