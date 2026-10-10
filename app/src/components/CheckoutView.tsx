@@ -3,9 +3,48 @@ import { CartItem, CheckoutFormState, Currency, Order, User, ShippingAddress } f
 import { createMomoPaymentApi, createVnpayPaymentApi, createPaypalPaymentApi, VerifyAtmOtpResponse } from '../api/payment';
 import { createCodOrderApi } from '../api/order';
 import { NcbOtpModal } from './NcbOtpModal';
+import { QRCodeSVG } from 'qrcode.react';
 
 // PayPal không hỗ trợ VND → backend quy đổi sang USD (VNDPerUSD bên service)
 const VND_PER_USD = 25000;
+
+// Tài khoản thụ hưởng cố định của shop (Vietcombank)
+const SHOP_BANK_BIN = '970436'; // Vietcombank
+const SHOP_BANK_ACC = '88992026888';
+
+// VietQR helpers — sinh chuỗi QR Napas 247 (động, kèm số tiền)
+function vietQRField(id: string, value: string): string {
+  return id + String(value.length).padStart(2, '0') + value;
+}
+
+function vietQRCrc16(str: string): string {
+  let crc = 0xffff;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+// buildVietQR — QR chuyển khoản đúng số tiền (đơn vị VND, làm tròn đồng)
+function buildVietQR(bankBin: string, account: string, amountVND: number, note: string): string {
+  const merchant =
+    vietQRField('00', 'A000000727') +
+    vietQRField('01', vietQRField('00', bankBin) + vietQRField('01', account));
+  const payload =
+    vietQRField('00', '01') +
+    vietQRField('01', '12') + // 12 = QR động (có số tiền)
+    vietQRField('38', merchant) +
+    vietQRField('52', '0000') +
+    vietQRField('53', '704') + // VND
+    vietQRField('54', String(Math.max(0, Math.round(amountVND)))) +
+    vietQRField('58', 'VN') +
+    vietQRField('62', vietQRField('08', note.slice(0, 25))) +
+    '6304';
+  return payload + vietQRCrc16(payload);
+}
 
 interface CheckoutViewProps {
   cart: CartItem[];
@@ -1198,26 +1237,64 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                       </div>
                     )}
 
-                    <div className="bg-slate-50 p-6 border border-slate-200 rounded-xl flex flex-col items-center gap-4 text-center">
-                      <div className="w-32 h-32 bg-white border border-slate-200 flex flex-col items-center justify-center p-2 rounded-lg shadow-xs">
-                        <i className="fa-solid fa-qrcode text-slate-400 text-5xl"></i>
-                        <span className="text-[10px] text-slate-400 uppercase font-bold mt-1">
-                          BIBLIOTHECA QR
-                        </span>
+                    <div className="relative overflow-hidden rounded-2xl border border-emerald-900/20 shadow-md">
+                      {/* Nền thẻ: gradient xanh VCB + họa tiết */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-900"></div>
+                      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-emerald-400/20 blur-2xl"></div>
+                      <div className="absolute -bottom-12 -left-12 w-44 h-44 rounded-full bg-teal-300/20 blur-2xl"></div>
+
+                      <div className="relative p-5 sm:p-6 flex flex-col items-center gap-4 text-center">
+                        <div className="flex items-center gap-2 text-emerald-100/90">
+                          <i className="fa-solid fa-building-columns text-sm"></i>
+                          <span className="text-[11px] font-bold uppercase tracking-[0.2em]">
+                            Vietcombank • Chuyển khoản QR
+                          </span>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-2xl shadow-lg ring-4 ring-white/20">
+                          <QRCodeSVG
+                            value={buildVietQR(SHOP_BANK_BIN, SHOP_BANK_ACC, totalVND, 'BOKO THANH TOAN')}
+                            size={180}
+                            level="M"
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] uppercase tracking-widest text-emerald-200/80 font-semibold">
+                            Số tiền cần chuyển
+                          </p>
+                          <p className="font-display font-bold text-3xl text-white tracking-tight">
+                            {totalVND.toLocaleString('vi-VN')} ₫
+                          </p>
+                        </div>
+
+                        <div className="w-full bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl px-4 py-3 text-left space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[10px] uppercase tracking-wider text-emerald-200/70 font-semibold">Số tài khoản</p>
+                              <p className="font-mono font-bold text-white text-sm tracking-wider">8899 2026 8888</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleCopyAccount}
+                              className="shrink-0 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <i className="fa-solid fa-copy text-xs"></i>
+                              <span>{copiedBank ? 'Đã chép!' : 'Chép STK'}</span>
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-emerald-100/80 border-t border-white/10 pt-2">
+                            Chủ TK: <strong className="text-white">BIBLIOTHECA STILLE CO., LTD</strong>
+                            <span className="mx-1">•</span>
+                            Nội dung: <strong className="text-white font-mono">BOKO THANH TOAN</strong>
+                          </p>
+                        </div>
+
+                        <p className="text-[11px] text-emerald-100/70 font-body">
+                          Mở app ngân hàng bất kỳ → quét mã → kiểm tra đúng số tiền rồi xác nhận.
+                        </p>
                       </div>
-                      <div className="text-xs text-slate-700 space-y-1">
-                        <p className="font-bold text-slate-900">Ngân hàng thụ hưởng: Vietcombank (VCB)</p>
-                        <p>STK: <strong className="font-mono text-blue-600">88992026888</strong></p>
-                        <p>Chủ TK: BIBLIOTHECA STILLE CO., LTD</p>
-                        <button
-                          type="button"
-                          onClick={handleCopyAccount}
-                          className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-700 underline flex items-center justify-center gap-1 mx-auto cursor-pointer"
-                        >
-                          <i className="fa-solid fa-copy text-xs"></i>
-                          <span>{copiedBank ? 'Đã sao chép STK!' : 'Sao chép STK ngân hàng'}</span>
-                        </button>
-                      </div>
+                    </div>
                       <div className="pt-2 border-t border-slate-200 w-full">
                         <button
                           type="button"
@@ -1228,7 +1305,6 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                           <span>Quản lý tài khoản ngân hàng trong Cài đặt</span>
                         </button>
                       </div>
-                    </div>
                   </div>
                 )}
               </div>
