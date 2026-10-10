@@ -1,13 +1,20 @@
+#include:
+#  - path: ./app/docker-compose.yml
+#  - path: ./server/docker-compose.yml
+#
+#services:
+#  app:
+#    depends_on:
+#      backend:
+#        condition: service_started
+#
+#networks:
+#  learning-lab-net:
+#    driver: bridge
+
 include:
   - path: ./app/docker-compose.yml
   - path: ./server/docker-compose.yml
-
-services:
-  app:
-    depends_on:
-      backend:
-        condition: service_started
-
 networks:
   learning-lab-net:
     driver: bridge

@@ -37,3 +37,6 @@ Thumbs.db
 
 # === Misc ===
 *.local
+
+#Need re-fucking-move in production but not in ToT
+#nginx/certs/*
