@@ -29,6 +29,7 @@ server/*.exe
 server/*.test
 server/*.out
 server/tmp/
+server/__debug_bin
 
 # OS/editor files
 .DS_Store

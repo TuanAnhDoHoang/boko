@@ -1,4 +1,4 @@
-# Binaries
+# === Go build artifacts ===
 *.exe
 *.exe~
 *.dll
@@ -12,40 +12,29 @@ dist/
 coverage/
 coverage.out
 __debug_bin
-
-# Go build/cache
-/vendor/
 /tmp/
 *.tmp
-*.log
-.go-version
+
+# === Go cache ===
+/vendor/
 .gocache/
 .gopath/
+.go-version
 
-# Environment
+# === Logs ===
+*.log
+
+# === Environment — credentials KHÔNG BAO GIỜ commit.
+# Dùng file mẫu .env.example + biến môi trường trên Render/Vercel.
 .env
 .env.*
 !.env.example
 
-# Env — credentials không bao giờ commit (dùng file mẫu + biến môi trường Render)
-.env
-.env.*
-!.env.example
-
-# IDE
+# === IDE / OS ===
 .vscode/
 .idea/
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Docker
-__debug_bin
-
-# Test files
-*_test.go
-
-.env
+# === Misc ===
 *.local
-
