@@ -3,9 +3,11 @@ import { safeFetchJson } from './client';
 import { normalizeBook, normalizeCategoryName } from './normalizers';
 
 export async function fetchBooksFromBackend(): Promise<Book[]> {
-  const response = await safeFetchJson<{ data?: any[]; total?: number; page?: number; limit?: number }>(`/api/books`);
+  const response = await safeFetchJson<{ data?: any[]; total?: number; page?: number; limit?: number }>(`/api/books?limit=50&sort=newest`);
   if (!response.ok || !response.data) {
-    console.log("Get error during get books: ", response.error.toString())
+    if (response.error) {
+      console.log("Get error during get books: ", response.error.toString());
+    }
     return [];
   }
 

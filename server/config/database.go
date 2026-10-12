@@ -5,9 +5,11 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var DB *gorm.DB
@@ -63,8 +65,20 @@ func ConnectDatabase() {
 		PreferSimpleProtocol: getEnv("DB_SIMPLE", "false") == "true",
 	})
 
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: true, // Tránh log cảnh báo khi query kiểm tra sự tồn tại trả về rỗng (như Idempotency check)
+			Colorful:                  false,
+		},
+	)
+
 	var err error
-	DB, err = gorm.Open(cfg, &gorm.Config{})
+	DB, err = gorm.Open(cfg, &gorm.Config{
+		Logger: newLogger,
+	})
 	if err != nil {
 		panic("Không thể kết nối database: " + err.Error())
 	}

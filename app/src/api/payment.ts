@@ -472,7 +472,19 @@ export async function verifyAtmOtpPaymentApi(
       Accept: 'application/json',
       ...authHeaders(),
     },
-    body: JSON.stringify(params),
+    body: JSON.stringify({
+      amount: params.amount,
+      card_number: params.cardNumber || '',
+      card_holder: params.cardHolder || '',
+      bank_name: params.bankName || '',
+      otp: params.otp,
+      shipping_address: params.shippingAddress || '',
+      phone: params.phone || '',
+      email: params.email || '', 
+      customer_name: params.customerName || '',
+      coupon_code: params.couponCode || '',
+      items: params.items || [],
+    }),
   });
 
   const data = await response.json().catch(() => ({}));

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"log"
 	"os"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"boko/config"
+	"boko/middleware"
 	"boko/models"
 	pmiddleware "boko/payments/middleware"
 	"boko/routes"
@@ -23,6 +25,14 @@ func main() {
 		// Không fatal nếu file .env không tồn tại ở môi trường khác
 		_ = err
 	}
+
+	// Kiểm tra tính hợp lệ của JWT_SECRET (bắt buộc tối thiểu 32 byte CSPRNG dạng hex)
+	secretHex := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	rawBytes, err := hex.DecodeString(secretHex)
+	if err != nil || len(rawBytes) < 32 {
+		log.Fatalf("FATAL ERROR: JWT_SECRET chưa được cấu hình hoặc không hợp lệ! Bắt buộc phải là chuỗi Hex tối thiểu 32 byte (64 ký tự hex) sinh từ CSPRNG. Dừng backend.")
+	}
+	middleware.JwtSecret = rawBytes
 
 	// Kết nối database
 	config.ConnectDatabase()
@@ -84,32 +94,23 @@ func seedData() {
 	seedUser(getSeedEnv("SEED_CUSTOMER_EMAIL", "test@gmail.com"), "SEED_CUSTOMER_PASSWORD", "test_user", "customer")
 
 	// Tạo danh mục mẫu cùng tên với UI frontend để đồng bộ giữa backend và frontend
-	var count int64
-	config.DB.Model(&models.Category{}).Count(&count)
-	if count == 0 {
-		categories := []models.Category{
-			{Name: "Mystery", Description: "Sách trinh thám, bí ẩn, khám phá"},
-			{Name: "Literature", Description: "Tiểu thuyết, truyện ngắn, thơ"},
-			{Name: "History", Description: "Sách lịch sử, chính trị, văn hóa"},
-			{Name: "Science", Description: "Sách khoa học, công nghệ, xã hội"},
-			{Name: "Art", Description: "Sách nghệ thuật, hội họa, thiết kế"},
-		}
-		for _, c := range categories {
+	categories := []models.Category{
+		{Name: "Mystery", Description: "Sách trinh thám, bí ẩn, khám phá"},
+		{Name: "Literature", Description: "Tiểu thuyết, truyện ngắn, thơ"},
+		{Name: "History", Description: "Sách lịch sử, chính trị, văn hóa"},
+		{Name: "Science", Description: "Sách khoa học, công nghệ, xã hội"},
+		{Name: "Art", Description: "Sách nghệ thuật, hội họa, thiết kế"},
+	}
+	for _, c := range categories {
+		var existing models.Category
+		if err := config.DB.Where("name = ?", c.Name).First(&existing).Error; err != nil {
 			config.DB.Create(&c)
 		}
 	}
 
-	// Tạo sách mẫu
-	config.DB.Model(&models.Book{}).Count(&count)
-	if count == 0 {
-		// Lấy admin làm seller cho sách mẫu
-		var admin models.User
-		if err := config.DB.Where("role = ?", "admin").First(&admin).Error; err != nil || admin.ID == 0 {
-			log.Println("seed: bỏ qua sách mẫu vì chưa có tài khoản admin")
-			return
-		}
-
-		// Lấy danh mục theo tên UI chuẩn
+	// Tạo sách mẫu tương ứng từng danh mục UI
+	var admin models.User
+	if err := config.DB.Where("role = ?", "admin").First(&admin).Error; err == nil && admin.ID > 0 {
 		var catTrinhTham, catVanHoc, catLichSu, catKhoaHoc, catNgheThuat models.Category
 		config.DB.Where("name = ?", "Mystery").First(&catTrinhTham)
 		config.DB.Where("name = ?", "Literature").First(&catVanHoc)
@@ -117,15 +118,18 @@ func seedData() {
 		config.DB.Where("name = ?", "Science").First(&catKhoaHoc)
 		config.DB.Where("name = ?", "Art").First(&catNgheThuat)
 
-		books := []models.Book{
-			{Title: "Lập Trình Go Cơ Bản", Author: "Nguyễn Văn A", Description: "Hướng dẫn lập trình Go từ cơ bản đến nâng cao", Price: 150000, Stock: 100, CategoryID: &catKhoaHoc.ID, UserID: admin.ID},
+		sampleBooks := []models.Book{
 			{Title: "The Hound of the Baskervilles", Author: "Arthur Conan Doyle", Description: "Tiểu thuyết trinh thám kinh điển", Price: 250000, Stock: 50, CategoryID: &catTrinhTham.ID, UserID: admin.ID},
 			{Title: "Nhà Giả Kim", Author: "Paulo Coelho", Description: "Hành trình theo đuổi giấc mơ", Price: 79000, Stock: 200, CategoryID: &catVanHoc.ID, UserID: admin.ID},
 			{Title: "Lịch Sử Việt Nam", Author: "TS. Lê Văn Hồng", Description: "Khái quát lịch sử Việt Nam qua các triều đại", Price: 89000, Stock: 150, CategoryID: &catLichSu.ID, UserID: admin.ID},
+			{Title: "Lập Trình Go Cơ Bản", Author: "Nguyễn Văn A", Description: "Hướng dẫn lập trình Go từ cơ bản đến nâng cao", Price: 150000, Stock: 100, CategoryID: &catKhoaHoc.ID, UserID: admin.ID},
 			{Title: "Câu Chuyện Nghệ Thuật", Author: "E.H. Gombrich", Description: "Hành trình khám phá mỹ thuật và hình thành văn hóa", Price: 180000, Stock: 80, CategoryID: &catNgheThuat.ID, UserID: admin.ID},
 		}
-		for _, b := range books {
-			config.DB.Create(&b)
+		for _, b := range sampleBooks {
+			var existing models.Book
+			if err := config.DB.Where("title = ?", b.Title).First(&existing).Error; err != nil {
+				config.DB.Create(&b)
+			}
 		}
 	}
 }

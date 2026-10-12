@@ -68,6 +68,8 @@ type Order struct {
 	PaymentRequestID string      `json:"payment_request_id"`
 	CouponCode       string      `json:"coupon_code"`
 	DiscountPercent  int         `json:"discount_percent" gorm:"default:0"`
+	StockDeducted    bool        `json:"stock_deducted" gorm:"default:false"`
+	IdempotencyKey   string      `json:"idempotency_key" gorm:"index"`
 	Items            []OrderItem `json:"items,omitempty" gorm:"foreignKey:OrderID"`
 	CreatedAt        time.Time   `json:"created_at"`
 	UpdatedAt        time.Time   `json:"updated_at"`

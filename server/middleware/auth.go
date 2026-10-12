@@ -9,8 +9,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// JwtSecret — khoá bí mật dùng để ký và xác thực JWT
-var JwtSecret = []byte("boko-secret-key-2024")
+// JwtSecret — khoá bí mật dùng để ký và xác thực JWT (được nạp từ main.go qua biến môi trường CSPRNG)
+var JwtSecret []byte
 
 // AuthOptional — middleware tuỳ chọn JWT token (giống PR VNPay của nhóm).
 // Nếu token hợp lệ thì gắn user vào context; nếu không có hoặc không hợp lệ

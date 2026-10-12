@@ -106,12 +106,28 @@ export interface User {
   paymentMethods?: SavedPaymentMethod[];
 }
 
+export interface CustomerOrderSummary {
+  firstName: string;
+  lastName: string;
+  email: string;
+  telephone: string;
+  address?: string;
+  streetAddress?: string;
+  ward?: string;
+  province?: string;
+  city?: string;
+  country?: string;
+  apt?: string;
+  shippingAddress?: string;
+  paymentMethod?: string;
+}
+
 export interface Order {
   id: string;
   dbId?: number;
   date: string;
   items: CartItem[];
-  customer: CheckoutFormState;
+  customer: CustomerOrderSummary;
   subtotalEUR: number;
   subtotalVND: number;
   discountEUR: number;
