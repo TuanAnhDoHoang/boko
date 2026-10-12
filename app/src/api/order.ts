@@ -24,6 +24,7 @@ export interface CreateCodOrderParams {
   email: string;
   customerName?: string;
   couponCode?: string;
+  idempotencyKey?: string;
   items: CreateCodOrderItem[];
 }
 
@@ -35,6 +36,43 @@ export interface CodOrderResponse {
   payment_method: string;
   payment_status: string;
   order?: any;
+}
+
+export interface OrderQuoteResponse {
+  subtotal: number;
+  discount_percent: number;
+  discount_amount: number;
+  total: number;
+  coupon_code?: string;
+}
+
+/**
+ * Lấy báo giá chuẩn từ Backend trước khi submit đơn hàng
+ * Endpoint: POST /api/orders/quote
+ */
+export async function getOrderQuoteApi(params: {
+  couponCode?: string;
+  items: { book_id: number; quantity: number }[];
+}): Promise<OrderQuoteResponse> {
+  const baseUrl = getBackendBaseUrl();
+  const response = await fetch(`${baseUrl}/api/orders/quote`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify({
+      coupon_code: params.couponCode || '',
+      items: params.items,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || 'Lỗi tính báo giá đơn hàng');
+  }
+  return data;
 }
 
 export interface ConfirmReceiptResponse {
@@ -65,13 +103,18 @@ function authHeaders(): Record<string, string> {
  */
 export async function createCodOrderApi(params: CreateCodOrderParams): Promise<CodOrderResponse> {
   const baseUrl = getBackendBaseUrl();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    ...authHeaders(),
+  };
+  if (params.idempotencyKey) {
+    headers['X-Idempotency-Key'] = params.idempotencyKey;
+  }
+
   const response = await fetch(`${baseUrl}/api/orders/cod/create`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...authHeaders(),
-    },
+    headers,
     body: JSON.stringify({
       amount: params.amount,
       shipping_address: params.shippingAddress,

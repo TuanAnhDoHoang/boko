@@ -39,14 +39,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const discountEUR = subtotalEUR * discountRate;
   const discountVND = subtotalVND * discountRate;
 
-  const vatEUR = (subtotalEUR - discountEUR) * 0.05;
-  const vatVND = (subtotalVND - discountVND) * 0.05;
+  const vatEUR = 0;
+  const vatVND = 0;
 
-  const shippingEUR = cart.length > 0 ? (isFreeShip ? 0 : 4.5) : 0;
-  const shippingVND = cart.length > 0 ? (isFreeShip ? 0 : 45000) : 0;
+  const shippingEUR = 0;
+  const shippingVND = 0;
 
-  const totalEUR = Math.max(0, subtotalEUR - discountEUR + vatEUR + shippingEUR);
-  const totalVND = Math.max(0, subtotalVND - discountVND + vatVND + shippingVND);
+  const totalEUR = Math.max(0, subtotalEUR - discountEUR);
+  const totalVND = Math.max(0, subtotalVND - discountVND);
 
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();

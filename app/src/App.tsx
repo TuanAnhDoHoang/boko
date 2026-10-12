@@ -23,6 +23,7 @@ import { getStoredAuthUser, getStoredAuthToken, logoutApi, serverUpdateProfile }
 import { isBackendConfigured } from './api/serverAuth';
 import { fetchBooksFromBackend } from './api/catalog';
 import { validateCouponCode } from './api/coupons';
+import { sanitizeBokoOrdersCache } from './utils/storage';
 
 const normalizeCategoryName = (name?: string): string => {
   const value = (name || '').trim().toLowerCase();
@@ -46,6 +47,11 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    // Làm sạch cache dữ liệu thẻ cũ khi khởi động (Fail-closed)
+    sanitizeBokoOrdersCache();
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     async function loadBooks() {
@@ -54,7 +60,18 @@ export default function App() {
       try {
         const backendBooks = await fetchBooksFromBackend();
         if (isMounted && backendBooks.length > 0) {
-          setBooksList(backendBooks);
+          // Lọc bỏ sách fixture test để không hiển thị rác kiểm thử lên UI
+          const userFacingBackendBooks = backendBooks.filter(
+            (b) => !b.title.startsWith('MATRIX_') && !b.title.startsWith('STAGE2_') && !b.title.startsWith('S3_')
+          );
+
+          // Hợp nhất backend books với danh mục mock BOOKS_DATA để đảm bảo
+          // TẤT CẢ các kệ sách (Mystery, Literature, History, Science, Art) đều hiển thị đầy đủ
+          setBooksList(() => {
+            const backendMap = new Map(userFacingBackendBooks.map((b) => [String(b.id), b]));
+            const remainingMock = BOOKS_DATA.filter((mb) => !backendMap.has(String(mb.id)));
+            return [...userFacingBackendBooks, ...remainingMock];
+          });
         }
       } catch (error) {
         console.warn('Failed to load books from backend:', error);

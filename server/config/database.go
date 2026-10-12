@@ -2,10 +2,13 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var DB *gorm.DB
@@ -24,8 +27,20 @@ func ConnectDatabase() {
 		host, port, user, password, dbname,
 	)
 
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: true, // Tránh log cảnh báo khi query kiểm tra sự tồn tại trả về rỗng (như Idempotency check)
+			Colorful:                  false,
+		},
+	)
+
 	var err error
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: newLogger,
+	})
 	if err != nil {
 		panic("Không thể kết nối database: " + err.Error())
 	}

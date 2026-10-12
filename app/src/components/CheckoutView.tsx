@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CartItem, CheckoutFormState, Currency, Order, User, ShippingAddress } from '../types';
+import { CartItem, CheckoutFormState, CustomerOrderSummary, Currency, Order, User, ShippingAddress } from '../types';
 import { createMomoPaymentApi, createVnpayPaymentApi, createPaypalPaymentApi, VerifyAtmOtpResponse } from '../api/payment';
 import { createCodOrderApi } from '../api/order';
 import { NcbOtpModal } from './NcbOtpModal';
@@ -173,14 +173,14 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
   const discountEUR = subtotalEUR * discountRate;
   const discountVND = subtotalVND * discountRate;
 
-  const vatEUR = (subtotalEUR - discountEUR) * 0.05;
-  const vatVND = (subtotalVND - discountVND) * 0.05;
+  const vatEUR = 0;
+  const vatVND = 0;
 
-  const shippingEUR = isFreeShip ? 0 : 4.5;
-  const shippingVND = isFreeShip ? 0 : 45000;
+  const shippingEUR = 0;
+  const shippingVND = 0;
 
-  const totalEUR = subtotalEUR - discountEUR + vatEUR + shippingEUR;
-  const totalVND = subtotalVND - discountVND + vatVND + shippingVND;
+  const totalEUR = Math.max(0, subtotalEUR - discountEUR);
+  const totalVND = Math.max(0, subtotalVND - discountVND);
 
   const isEUR = currency === 'EUR';
   const totalUSD = Math.round((totalVND / VND_PER_USD) * 100) / 100;
@@ -219,22 +219,35 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
   };
 
   const handleAtmPaymentSuccess = (res: VerifyAtmOtpResponse) => {
+    const customerSummary: CustomerOrderSummary = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      telephone: formData.telephone,
+      address: formData.address,
+      streetAddress: formData.streetAddress,
+      ward: formData.ward,
+      province: formData.province,
+      shippingAddress: buildShippingAddress() || 'Địa chỉ nhận sách Boko',
+      paymentMethod: 'atm',
+    };
+
     const newOrder: Order = {
       id: `BST-${res.order_id}`,
       dbId: res.order_id,
       date: new Date().toLocaleDateString('vi-VN'),
       items: displayItems,
-      customer: formData,
+      customer: customerSummary,
       subtotalEUR,
       subtotalVND,
       discountEUR,
       discountVND,
-      vatEUR,
-      vatVND,
-      shippingEUR,
-      shippingVND,
+      vatEUR: 0,
+      vatVND: 0,
+      shippingEUR: 0,
+      shippingVND: 0,
       totalEUR,
-      totalVND,
+      totalVND: res.total ?? totalVND,
       currency,
       discountCode: appliedDiscountCode || undefined,
       status: 'shipping',
@@ -386,9 +399,26 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     const orderStatus: 'shipping' | 'pending' = 'shipping';
     const paymentStatus: 'unpaid' | 'paid' = 'unpaid';
 
+    let serverConfirmedTotal = totalVND;
+
     if (formData.paymentMethod === 'cod') {
       try {
         const fullAddress = `${formData.streetAddress || formData.address || ''}, ${formData.ward || ''}, ${formData.province || ''}`.trim();
+        const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `IDEMP-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+        const codItems = displayItems.map((item) => {
+          const numId = Number(item.book.id);
+          if (!Number.isSafeInteger(numId) || numId <= 0) {
+            throw new Error(`Mã sách "${item.book.title}" không hợp lệ`);
+          }
+          return {
+            book_id: numId,
+            title: item.book.title,
+            price: item.book.priceVND,
+            quantity: item.quantity,
+          };
+        });
+
         const codRes = await createCodOrderApi({
           amount: Math.round(totalVND),
           shippingAddress: fullAddress || 'Địa chỉ nhận sách Boko',
@@ -396,37 +426,54 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
           email: formData.email,
           customerName: `${formData.firstName} ${formData.lastName}`.trim(),
           couponCode: appliedDiscountCode || '',
-          items: displayItems.map((item) => ({
-            book_id: typeof item.book.id === 'number' ? item.book.id : 1,
-            title: item.book.title,
-            price: item.book.priceVND,
-            quantity: item.quantity,
-          })),
+          idempotencyKey,
+          items: codItems,
         });
 
         if (codRes && codRes.order_id) {
           createdDbId = codRes.order_id;
+          if (typeof codRes.total === 'number') {
+            serverConfirmedTotal = codRes.total;
+          }
+        } else {
+          throw new Error('Không nhận được mã xác nhận đơn hàng từ server.');
         }
-      } catch (err) {
-        console.warn('Lỗi lưu đơn COD vào backend, tiếp tục lưu local:', err);
+      } catch (err: any) {
+        console.error('Lỗi lưu đơn COD vào backend:', err);
+        setFormErrors([err.message || 'Không thể tạo đơn hàng COD. Vui lòng kiểm tra lại.']);
+        return; // DỪNG TIẾN TRÌNH: TUYỆT ĐỐI KHÔNG FAKE SUCCESS!
       }
     }
+
+    const customerSummary: CustomerOrderSummary = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      telephone: formData.telephone,
+      address: formData.address,
+      streetAddress: formData.streetAddress,
+      ward: formData.ward,
+      province: formData.province,
+      shippingAddress: `${formData.streetAddress || formData.address || ''}, ${formData.ward || ''}, ${formData.province || ''}`.trim(),
+      paymentMethod: formData.paymentMethod,
+    };
+
     const newOrder: Order = {
       id: createdDbId ? `BST-${createdDbId}` : `BST-${Math.floor(100000 + Math.random() * 900000)}`,
       dbId: createdDbId,
       date: new Date().toLocaleDateString('vi-VN'),
       items: displayItems,
-      customer: formData,
+      customer: customerSummary,
       subtotalEUR,
       subtotalVND,
       discountEUR,
       discountVND,
-      vatEUR,
-      vatVND,
-      shippingEUR,
-      shippingVND,
+      vatEUR: 0,
+      vatVND: 0,
+      shippingEUR: 0,
+      shippingVND: 0,
       totalEUR,
-      totalVND,
+      totalVND: serverConfirmedTotal,
       currency,
       discountCode: appliedDiscountCode || undefined,
       status: orderStatus,
