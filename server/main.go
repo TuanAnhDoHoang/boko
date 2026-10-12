@@ -1,10 +1,7 @@
 package main
 
 import (
-<<<<<<< HEAD
 	"encoding/hex"
-=======
->>>>>>> 0b8750c8e6fde901d12f07a5f21d37777f48ebb6
 	"log"
 	"os"
 	"strings"
@@ -89,7 +86,6 @@ func seedData() {
 	seedUser(getSeedEnv("SEED_CUSTOMER_EMAIL", "test@gmail.com"), "SEED_CUSTOMER_PASSWORD", "test_user", "customer")
 
 	// Tạo danh mục mẫu cùng tên với UI frontend để đồng bộ giữa backend và frontend
-<<<<<<< HEAD
 	categories := []models.Category{
 		{Name: "Mystery", Description: "Sách trinh thám, bí ẩn, khám phá"},
 		{Name: "Literature", Description: "Tiểu thuyết, truyện ngắn, thơ"},
@@ -100,40 +96,13 @@ func seedData() {
 	for _, c := range categories {
 		var existing models.Category
 		if err := config.DB.Where("name = ?", c.Name).First(&existing).Error; err != nil {
-=======
-	var count int64
-	config.DB.Model(&models.Category{}).Count(&count)
-	if count == 0 {
-		categories := []models.Category{
-			{Name: "Mystery", Description: "Sách trinh thám, bí ẩn, khám phá"},
-			{Name: "Literature", Description: "Tiểu thuyết, truyện ngắn, thơ"},
-			{Name: "History", Description: "Sách lịch sử, chính trị, văn hóa"},
-			{Name: "Science", Description: "Sách khoa học, công nghệ, xã hội"},
-			{Name: "Art", Description: "Sách nghệ thuật, hội họa, thiết kế"},
-		}
-		for _, c := range categories {
->>>>>>> 0b8750c8e6fde901d12f07a5f21d37777f48ebb6
 			config.DB.Create(&c)
 		}
 	}
 
-<<<<<<< HEAD
 	// Tạo sách mẫu tương ứng từng danh mục UI
 	var admin models.User
-	if err := config.DB.Where("role = ?", "admin").First(&admin).Error; err == nil {
-=======
-	// Tạo sách mẫu
-	config.DB.Model(&models.Book{}).Count(&count)
-	if count == 0 {
-		// Lấy admin làm seller cho sách mẫu
-		var admin models.User
-		if err := config.DB.Where("role = ?", "admin").First(&admin).Error; err != nil || admin.ID == 0 {
-			log.Println("seed: bỏ qua sách mẫu vì chưa có tài khoản admin")
-			return
-		}
-
-		// Lấy danh mục theo tên UI chuẩn
->>>>>>> 0b8750c8e6fde901d12f07a5f21d37777f48ebb6
+	if err := config.DB.Where("role = ?", "admin").First(&admin).Error; err == nil && admin.ID > 0 {
 		var catTrinhTham, catVanHoc, catLichSu, catKhoaHoc, catNgheThuat models.Category
 		config.DB.Where("name = ?", "Mystery").First(&catTrinhTham)
 		config.DB.Where("name = ?", "Literature").First(&catVanHoc)

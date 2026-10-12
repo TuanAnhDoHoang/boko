@@ -4,11 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-<<<<<<< HEAD
-	"time"
-=======
 	"strings"
->>>>>>> 0b8750c8e6fde901d12f07a5f21d37777f48ebb6
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -79,13 +76,9 @@ func ConnectDatabase() {
 	)
 
 	var err error
-<<<<<<< HEAD
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+	DB, err = gorm.Open(cfg, &gorm.Config{
 		Logger: newLogger,
 	})
-=======
-	DB, err = gorm.Open(cfg, &gorm.Config{})
->>>>>>> 0b8750c8e6fde901d12f07a5f21d37777f48ebb6
 	if err != nil {
 		panic("Không thể kết nối database: " + err.Error())
 	}
