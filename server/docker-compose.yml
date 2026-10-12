@@ -35,5 +35,20 @@ services:
         condition: service_healthy
     restart: on-failure
 
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: boko-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+      - app
+    restart: unless-stopped
+
 volumes:
   boko-pgdata:
