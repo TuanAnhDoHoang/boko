@@ -46,8 +46,9 @@ function getAuthToken(): string {
 }
 
 function getBaseUrl(): string {
-  const configured = getBackendBaseUrl();
-  return configured || 'http://localhost:8080';
+  // Trả về VITE_BACKEND_URL nếu được set (local dev),
+  // hoặc '' để dùng relative path /api/... qua nginx proxy (Docker deploy)
+  return getBackendBaseUrl();
 }
 
 function authHeaders(): Record<string, string> {
@@ -90,7 +91,7 @@ export async function createMomoPaymentApi(
     if (response.status === 401) {
       try {
         localStorage.removeItem('boko_auth_token');
-      } catch {}
+      } catch { }
     }
     throw new Error(data.error || data.message || `Lỗi khi kết nối MoMo: HTTP ${response.status}`);
   }
@@ -340,7 +341,7 @@ export async function createPaypalPaymentApi(
   params: CreatePaypalPaymentParams
 ): Promise<PaypalPaymentResponse> {
   const baseUrl = getBackendBaseUrl();
-  if (!baseUrl) throw new Error('Chưa cấu hình backend (VITE_BACKEND_URL).');
+  // if (!baseUrl) throw new Error('Chưa cấu hình backend (VITE_BACKEND_URL).');
 
   const response = await fetch(`${baseUrl}/api/payment/paypal/create`, {
     method: 'POST',
@@ -376,7 +377,7 @@ export async function capturePaypalPaymentApi(
   params: { paypalOrderId: string }
 ): Promise<PaymentStatusResponse & { message: string }> {
   const baseUrl = getBackendBaseUrl();
-  if (!baseUrl) throw new Error('Chưa cấu hình backend (VITE_BACKEND_URL).');
+  // if (!baseUrl) throw new Error('Chưa cấu hình backend (VITE_BACKEND_URL).');
 
   const response = await fetch(`${baseUrl}/api/payment/paypal/capture`, {
     method: 'POST',
@@ -405,7 +406,7 @@ export async function getPaypalStatusApi(
   orderId: number | string
 ): Promise<PaymentStatusResponse> {
   const baseUrl = getBackendBaseUrl();
-  if (!baseUrl) throw new Error('Chưa cấu hình backend (VITE_BACKEND_URL).');
+  // if (!baseUrl) throw new Error('Chưa cấu hình backend (VITE_BACKEND_URL).');
 
   const response = await fetch(`${baseUrl}/api/payment/paypal/status/${orderId}`, {
     headers: {
@@ -462,7 +463,7 @@ export async function verifyAtmOtpPaymentApi(
   params: VerifyAtmOtpParams
 ): Promise<VerifyAtmOtpResponse> {
   const baseUrl = getBackendBaseUrl();
-  if (!baseUrl) throw new Error('Chưa cấu hình backend (VITE_BACKEND_URL).');
+  // if (!baseUrl) throw new Error('Chưa cấu hình backend (VITE_BACKEND_URL).');
 
   const response = await fetch(`${baseUrl}/api/payment/atm/verify-otp`, {
     method: 'POST',

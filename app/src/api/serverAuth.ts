@@ -5,15 +5,18 @@ import { User } from '../types';
  * Can be set via VITE_BACKEND_URL in .env (e.g. 'https://api.boko.vn' or 'http://localhost:8080')
  */
 export function getBackendBaseUrl(): string {
-  const url = (import.meta.env.VITE_BACKEND_URL || '').trim();
-  return url.replace(/\/+$/, '');
+  // Nếu VITE_BACKEND_URL được set (ví dụ: http://localhost:8080 khi dev local),
+  // dùng nó làm base URL. Nếu không (khi deploy qua nginx), trả về '' để
+  // các request dùng relative path /api/... và được nginx proxy tới backend.
+  return (import.meta.env.VITE_BACKEND_URL || '').trim();
 }
 
 /**
- * Checks if a remote backend host is configured
+ * Checks if backend is reachable.
+ * Luôn trả true vì relative path /api/... qua nginx proxy luôn hợp lệ.
  */
 export function isBackendConfigured(): boolean {
-  return getBackendBaseUrl().length > 0;
+  return true;
 }
 
 // Payload DTOs for Server Requests
@@ -54,17 +57,19 @@ export interface ServerAuthResponse {
  */
 async function fetchServer<T>(endpoint: string, options: RequestInit = {}, timeoutMs = 8000): Promise<T> {
   const baseUrl = getBackendBaseUrl();
-  if (!baseUrl) {
-    throw new Error('BACKEND_URL_NOT_CONFIGURED');
-  }
+  console.log("[fetchServer] Base URL:", baseUrl);
+  // if (!baseUrl) {
+  //   throw new Error('BACKEND_URL_NOT_CONFIGURED');
+  // }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  // const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
+  console.log("[fetchServer] Requesting:", endpoint, "with options:", options);
   try {
-    const res = await fetch(url, {
+    const res = await fetch(endpoint, {
       ...options,
       signal: controller.signal,
       headers: {

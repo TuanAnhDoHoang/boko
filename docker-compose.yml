@@ -16,5 +16,5 @@ include:
   - path: ./app/docker-compose.yml
   - path: ./server/docker-compose.yml
 networks:
-  learning-lab-net:
+  boko-net:
     driver: bridge

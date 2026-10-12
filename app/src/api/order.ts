@@ -51,7 +51,8 @@ function getBackendBaseUrl(): string {
       return fromMeta.replace(/\/+$/, '');
     }
   }
-  return 'http://localhost:8080';
+  //return 'http://localhost:8080';
+  return '/api';
 }
 
 function authHeaders(): Record<string, string> {
