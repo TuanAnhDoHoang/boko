@@ -409,7 +409,7 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
         const codItems = displayItems.map((item) => {
           const numId = Number(item.book.id);
           if (!Number.isSafeInteger(numId) || numId <= 0) {
-            throw new Error(`Mã sách "${item.book.title}" không hợp lệ`);
+            throw new Error(`Sách "${item.book.title}" hiện không có trong hệ thống nên không thể đặt hàng. Vui lòng chọn cuốn khác.`);
           }
           return {
             book_id: numId,

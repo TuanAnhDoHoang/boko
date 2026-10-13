@@ -66,10 +66,17 @@ export default function App() {
           );
 
           // Hợp nhất backend books với danh mục mock BOOKS_DATA để đảm bảo
-          // TẤT CẢ các kệ sách (Mystery, Literature, History, Science, Art) đều hiển thị đầy đủ
+          // TẤT CẢ các kệ sách (Mystery, Literature, History, Science, Art) đều hiển thị đầy đủ.
+          // Sách mock có tiêu đề trùng với bản ghi backend thì bị loại để không hiện hai lần
+          // (backend đã seed danh mục demo → mọi cuốn trên kệ đều mua được qua COD).
           setBooksList(() => {
             const backendMap = new Map(userFacingBackendBooks.map((b) => [String(b.id), b]));
-            const remainingMock = BOOKS_DATA.filter((mb) => !backendMap.has(String(mb.id)));
+            const backendTitles = new Set(
+              userFacingBackendBooks.map((b) => b.title.trim().toLowerCase())
+            );
+            const remainingMock = BOOKS_DATA.filter(
+              (mb) => !backendMap.has(String(mb.id)) && !backendTitles.has(mb.title.trim().toLowerCase())
+            );
             return [...userFacingBackendBooks, ...remainingMock];
           });
         }

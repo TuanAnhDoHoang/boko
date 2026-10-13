@@ -97,6 +97,7 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
+  role?: string; // customer | seller | admin (có khi đăng nhập qua backend)
   bio?: string;
   avatarUrl?: string;
   provider?: 'email' | 'google' | 'facebook' | 'apple';
@@ -145,6 +146,46 @@ export interface Order {
   paymentMethod?: string;
   shippingAddress?: string;
   phone?: string;
+  shipment?: Shipment | null;
+}
+
+// Vận đơn giao cho hãng thứ 3 (GHN) quản lý sau khi đơn đã đóng gói
+export interface Shipment {
+  id: number;
+  order_id: number;
+  provider: string; // 'ghn'
+  client_order_code: string; // mã đơn phía shop (BOKO-<orderId>)
+  order_code: string; // mã vận đơn GHN để tra cứu
+  status: string; // trạng thái gốc của GHN (delivering, delivered...)
+  status_text: string; // mô tả tiếng Việt
+  service_type_id: number;
+  payment_type_id: number;
+  total_fee: number;
+  cod_amount: number;
+  leadtime: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+}
+
+// 1 chặng trong hành trình vận đơn GHN
+export interface GHNJourneyStage {
+  key: string;
+  title: string;
+  done: boolean;
+  current: boolean;
+  warning: boolean;
+  at: string | null;
+}
+
+// 1 mốc hành trình vận đơn đã ghi nhận
+export interface ShipmentEvent {
+  id: number;
+  order_id: number;
+  shipment_id: number;
+  status: string;
+  status_text: string;
+  source: string;
+  created_at: string;
 }
 
 export interface UsedBookListing {

@@ -63,6 +63,14 @@ func SetupRoutes(r *gin.Engine) {
 	// Thẻ ATM Nội Địa NCB — Xác thực OTP 1-chạm
 	r.POST("/api/payment/atm/verify-otp", middleware.AuthOptional, controllers.VerifyAtmOtpPayment)
 
+	// ==================== GHN SHIPPING ====================
+	// Chuyển đơn ĐÃ ĐÓNG GÓI cho hãng thứ 3 (GHN) quản lý vận chuyển.
+	r.POST("/api/orders/:id/ghn/handover", middleware.AuthRequired, middleware.SellerRequired, controllers.HandoverToGHN)
+	r.GET("/api/orders/:id/ghn", middleware.AuthOptional, controllers.GetOrderShipment)
+	r.POST("/api/orders/:id/ghn/sync", middleware.AuthOptional, controllers.SyncOrderShipment)
+	// GHN gọi ngược khi trạng thái đơn thay đổi (phải public, không cần đăng nhập)
+	r.POST("/api/ghn/webhook", controllers.GHNWebhook)
+
 	// ==================== PROTECTED ROUTES ====================
 
 	auth := r.Group("/api")

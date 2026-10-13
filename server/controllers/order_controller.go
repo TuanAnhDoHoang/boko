@@ -145,6 +145,9 @@ func CreateOrder(c *gin.Context) {
 	var order models.Order
 	config.DB.Preload("Items").Where("user_id = ?", userID).Order("id desc").First(&order)
 
+	// Tự động chuyển cho GHN quản lý vận chuyển (nền, không chặn phản hồi)
+	go autoHandoverToGHNAsync(order.ID)
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message":        "Đặt hàng thành công!",
 		"order_id":       order.ID,
@@ -158,7 +161,7 @@ func CreateOrder(c *gin.Context) {
 // GetMyOrders — lịch sử đơn hàng của user (hỗ trợ cả token auth hoặc theo email query)
 func GetMyOrders(c *gin.Context) {
 	var orders []models.Order
-	query := config.DB.Preload("Items")
+	query := config.DB.Preload("Items").Preload("Shipment")
 
 	if val, exists := c.Get("user_id"); exists {
 		if uid, ok := val.(uint); ok && uid > 0 {
@@ -444,6 +447,10 @@ func CreateCodOrder(c *gin.Context) {
 	}
 
 	config.DB.Preload("Items").First(&createdOrder, createdOrder.ID)
+
+	// Tự động chuyển cho GHN quản lý vận chuyển (nền, không chặn phản hồi)
+	go autoHandoverToGHNAsync(createdOrder.ID)
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message":        "Đặt hàng COD thành công!",
 		"order_id":       createdOrder.ID,
@@ -521,7 +528,7 @@ func GetOrderDetail(c *gin.Context) {
 	orderID := c.Param("id")
 
 	var order models.Order
-	if result := config.DB.Preload("Items").
+	if result := config.DB.Preload("Items").Preload("Shipment").
 		Where("id = ? AND user_id = ?", orderID, userID).
 		First(&order); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy đơn hàng"})
@@ -792,6 +799,9 @@ func VerifyAtmOtpPayment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Tự động chuyển cho GHN quản lý vận chuyển (nền, không chặn phản hồi)
+	go autoHandoverToGHNAsync(createdOrder.ID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":        true,

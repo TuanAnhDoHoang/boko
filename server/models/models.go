@@ -71,8 +71,46 @@ type Order struct {
 	StockDeducted    bool        `json:"stock_deducted" gorm:"default:false"`
 	IdempotencyKey   string      `json:"idempotency_key" gorm:"index"`
 	Items            []OrderItem `json:"items,omitempty" gorm:"foreignKey:OrderID"`
+	Shipment         *Shipment   `json:"shipment,omitempty" gorm:"foreignKey:OrderID"` // vận đơn GHN quản lý sau khi đóng gói
 	CreatedAt        time.Time   `json:"created_at"`
 	UpdatedAt        time.Time   `json:"updated_at"`
+}
+
+// Shipment — vận đơn giao cho hãng thứ 3 (GHN) quản lý.
+// Được tạo khi đơn đã đóng gói (Trạng thái chuyển sang shipping). GHN lo phần
+// lấy hàng/vận chuyển/thu tiền COD; người mua vẫn bấm "Tôi đã nhận được hàng"
+// để chốt đơn (chuyển đơn sang completed).
+type Shipment struct {
+	ID               uint       `json:"id" gorm:"primaryKey"`
+	OrderID          uint       `json:"order_id" gorm:"uniqueIndex"`     // 1 đơn chỉ có 1 vận đơn GHN
+	Provider         string     `json:"provider" gorm:"default:ghn"`     // nhà vận chuyển: ghn
+	ClientOrderCode  string     `json:"client_order_code"`               // mã đơn phía shop gửi cho GHN
+	OrderCode        string     `json:"order_code"`                      // mã vận đơn GHN để tra cứu
+	Status           string     `json:"status"`                          // trạng thái gốc của GHN
+	StatusText       string     `json:"status_text"`                     // mô tả tiếng Việt cho UI
+	ServiceTypeID    int        `json:"service_type_id"`
+	PaymentTypeID    int        `json:"payment_type_id"`
+	TotalFee         int64      `json:"total_fee"`                       // cước phí GHN trả về
+	CODAmount        float64    `json:"cod_amount"`                      // số tiền COD GHN thu hộ
+	Leadtime         *time.Time `json:"leadtime"`                        // dự kiến giao xong
+	Payload          string     `json:"-" gorm:"type:text"`              // JSON thô từ GHN để đối soát
+	LastSyncedAt     *time.Time `json:"last_synced_at"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+}
+
+// ShipmentEvent — nhật ký hành trình vận đơn GHN.
+// Ghi 1 mốc mỗi khi: tạo vận đơn (handover), đồng bộ trạng thái (sync),
+// hoặc GHN gọi ngược (webhook). Dùng để vẽ timeline "hàng đang ở đâu" cho
+// người mua (GHN test không duy trì log hành trình phía họ).
+type ShipmentEvent struct {
+	ID         uint      `json:"id" gorm:"primaryKey"`
+	OrderID    uint      `json:"order_id" gorm:"index"`
+	ShipmentID uint      `json:"shipment_id" gorm:"index"`
+	Status     string    `json:"status"`
+	StatusText string    `json:"status_text"`
+	Source     string    `json:"source"` // handover | auto | sync | webhook
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // OrderItem — chi tiết đơn hàng (lưu snapshot giá tại thời điểm mua)

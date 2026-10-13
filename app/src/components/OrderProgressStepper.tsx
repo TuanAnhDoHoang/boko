@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { confirmOrderReceivedApi } from '../api/order';
+import React, { useState, useEffect, useCallback } from 'react';
+import { confirmOrderReceivedApi, getOrderShipmentApi, syncOrderShipmentApi } from '../api/order';
+import { Shipment, GHNJourneyStage } from '../types';
 
 interface OrderProgressStepperProps {
   orderId: number | string;
@@ -9,6 +10,7 @@ interface OrderProgressStepperProps {
   totalVND?: number;
   onConfirmSuccess?: (updatedOrder?: any) => void;
   compact?: boolean;
+  refreshTick?: number; // tăng số này để buộc tải lại thông tin GHN (sau khi chuyển cho GHN)
 }
 
 export const OrderProgressStepper: React.FC<OrderProgressStepperProps> = ({
@@ -19,14 +21,57 @@ export const OrderProgressStepper: React.FC<OrderProgressStepperProps> = ({
   totalVND,
   onConfirmSuccess,
   compact = false,
+  refreshTick = 0,
 }) => {
   const [isConfirming, setIsConfirming] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmedLocally, setConfirmedLocally] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Vận đơn GHN đang quản lý đơn hàng (sau khi đã đóng gói)
+  const [shipment, setShipment] = useState<Shipment | null>(null);
+  const [journey, setJourney] = useState<GHNJourneyStage[]>([]);
+  const [isLoadingShipment, setIsLoadingShipment] = useState(false);
+  const [isSyncingShipment, setIsSyncingShipment] = useState(false);
+
   const isCompleted = status === 'completed' || confirmedLocally;
   const isShipping = !isCompleted; // Ở chế độ demo, 3 bước đầu luôn hoàn tất và đang ở shipping
+
+  const loadShipment = useCallback(async (sync = false) => {
+    const numericId = Number(orderId);
+    if (!Number.isSafeInteger(numericId) || numericId <= 0) return;
+
+    try {
+      if (sync) {
+        setIsSyncingShipment(true);
+      } else {
+        setIsLoadingShipment(true);
+      }
+
+      if (sync) {
+        // Đồng bộ trạng thái mới nhất từ GHN rồi lấy lại
+        const synced = await syncOrderShipmentApi(orderId).catch(() => null);
+        if (synced?.shipment) {
+          setShipment(synced.shipment);
+          setJourney(synced.journey || []);
+          return;
+        }
+      }
+
+      const res = await getOrderShipmentApi(orderId).catch(() => null);
+      setShipment(res?.shipment || null);
+      setJourney(res?.journey || []);
+    } catch (err) {
+      console.warn('Không lấy được thông tin vận đơn GHN:', err);
+    } finally {
+      setIsLoadingShipment(false);
+      setIsSyncingShipment(false);
+    }
+  }, [orderId]);
+
+  useEffect(() => {
+    loadShipment();
+  }, [loadShipment, refreshTick]);
 
   const handleConfirmReceipt = async () => {
     setIsConfirming(true);
@@ -73,6 +118,16 @@ export const OrderProgressStepper: React.FC<OrderProgressStepperProps> = ({
     }
   };
 
+  const ghnStatus = shipment?.status || '';
+  const ghnDelivered = ghnStatus === 'delivered';
+  const shippingStepDesc = isCompleted
+    ? 'Shipper đã giao tới bạn'
+    : shipment
+      ? ghnDelivered
+        ? 'GHN đã giao bưu kiện cho bạn'
+        : shipment.status_text
+      : 'Shipper đang trên đường giao';
+
   const steps = [
     {
       id: 1,
@@ -85,7 +140,7 @@ export const OrderProgressStepper: React.FC<OrderProgressStepperProps> = ({
     {
       id: 2,
       title: 'Đã Đóng Gói',
-      desc: 'Kho đã chuẩn bị sách',
+      desc: shipment ? 'Đã bàn giao cho GHN quản lý' : 'Kho đã chuẩn bị sách',
       icon: 'fa-box-archive',
       isDone: true,
       isActive: false,
@@ -93,7 +148,7 @@ export const OrderProgressStepper: React.FC<OrderProgressStepperProps> = ({
     {
       id: 3,
       title: isCompleted ? 'Đã Giao Xong' : 'Đang Giao Hàng',
-      desc: isCompleted ? 'Shipper đã giao tới bạn' : 'Shipper đang trên đường giao',
+      desc: shippingStepDesc,
       icon: 'fa-truck-fast',
       isDone: isCompleted,
       isActive: isShipping,
@@ -190,6 +245,145 @@ export const OrderProgressStepper: React.FC<OrderProgressStepperProps> = ({
         </div>
       </div>
 
+      {/* Thông tin vận đơn GHN — bên thứ 3 quản lý sau khi đã đóng gói */}
+      {isLoadingShipment && !shipment && !isCompleted && (
+        <p className="text-[11px] text-slate-500 text-center">Đang tải thông tin vận chuyển...</p>
+      )}
+
+      {shipment && (
+        <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2.5 animate-fadeIn">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <i className="fa-solid fa-truck-fast text-blue-600"></i>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                GHN Quản Lý Vận Chuyển
+              </span>
+            </div>
+            <span
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                ghnDelivered
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-blue-50 text-blue-700 border-blue-200'
+              }`}
+            >
+              {shipment.status_text}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
+            <p>
+              Mã vận đơn GHN:{' '}
+              <strong className="font-mono text-slate-900">{shipment.order_code || '—'}</strong>
+            </p>
+            <p>
+              Mã đơn shop: <strong className="font-mono text-slate-900">{shipment.client_order_code}</strong>
+            </p>
+            {shipment.leadtime && (
+              <p>
+                Dự kiến giao:{' '}
+                <strong className="text-slate-900">
+                  {new Date(shipment.leadtime).toLocaleDateString('vi-VN')}
+                </strong>
+              </p>
+            )}
+            {shipment.cod_amount > 0 && (
+              <p>
+                Tiền COD cho shipper:{' '}
+                <strong className="text-slate-900">{shipment.cod_amount.toLocaleString('vi-VN')} ₫</strong>
+              </p>
+            )}
+            <p>
+              Cước phí GHN:{' '}
+              <strong className="text-slate-900">{shipment.total_fee.toLocaleString('vi-VN')} ₫</strong>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-0.5">
+            <button
+              type="button"
+              onClick={() => loadShipment(true)}
+              disabled={isSyncingShipment}
+              className="text-[11px] font-bold text-blue-700 hover:text-blue-800 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+            >
+              <i className={`fa-solid fa-rotate ${isSyncingShipment ? 'fa-spin' : ''}`}></i>
+              {isSyncingShipment ? 'Đang đồng bộ...' : 'Làm mới trạng thái từ GHN'}
+            </button>
+            {shipment.order_code && (
+              <a
+                href={`https://ghn.dev/tra-cuu-van-don?order_code=${encodeURIComponent(shipment.order_code)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] font-bold text-slate-600 hover:text-slate-800 flex items-center gap-1.5"
+              >
+                <i className="fa-solid fa-up-right-from-square"></i>
+                Tra cứu trên trang GHN
+              </a>
+            )}
+          </div>
+
+          {/* Timeline hành trình bưu kiện — người mua biết hàng đang ở đâu */}
+          {journey.length > 0 && (
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                Hành trình bưu kiện
+              </p>
+              <div>
+                {journey.map((stage, idx) => (
+                  <div key={stage.key} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] shrink-0 ${
+                          stage.done
+                            ? 'bg-emerald-600 text-white'
+                            : stage.current
+                              ? stage.warning
+                                ? 'bg-amber-500 text-white animate-pulse'
+                                : 'bg-blue-600 text-white animate-pulse'
+                              : 'bg-slate-200 text-slate-400'
+                        }`}
+                      >
+                        {stage.done ? (
+                          <i className="fa-solid fa-check"></i>
+                        ) : stage.current ? (
+                          <i className="fa-solid fa-truck-fast"></i>
+                        ) : (
+                          <i className="fa-solid fa-circle text-[6px]"></i>
+                        )}
+                      </div>
+                      {idx < journey.length - 1 && (
+                        <div
+                          className={`w-0.5 flex-1 min-h-4 ${stage.done ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                        ></div>
+                      )}
+                    </div>
+                    <div className="pb-3.5 -mt-0.5">
+                      <p
+                        className={`text-xs font-bold leading-tight ${
+                          stage.done
+                            ? 'text-emerald-900'
+                            : stage.current
+                              ? stage.warning
+                                ? 'text-amber-800'
+                                : 'text-blue-900'
+                              : 'text-slate-400'
+                        }`}
+                      >
+                        {stage.title}
+                      </p>
+                      {stage.at && (
+                        <p className="text-[11px] text-slate-500">
+                          {new Date(stage.at).toLocaleString('vi-VN')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Action Area: Notification & Confirm Button */}
       {isShipping && !isCompleted && (
         <div className="pt-2 animate-fadeIn">
@@ -200,12 +394,16 @@ export const OrderProgressStepper: React.FC<OrderProgressStepperProps> = ({
               </div>
               <div className="text-left">
                 <p className="text-xs sm:text-sm font-bold text-blue-950">
-                  Shipper đang trên đường vận chuyển bưu kiện sách tới bạn!
+                  {ghnDelivered
+                    ? 'GHN đã giao bưu kiện sách cho bạn!'
+                    : 'Shipper đang trên đường vận chuyển bưu kiện sách tới bạn!'}
                 </p>
                 <p className="text-xs text-blue-800/90 mt-0.5">
                   Hình thức: <strong>Thanh toán khi nhận hàng (COD)</strong>
                   {totalVND ? ` • Chuẩn bị tiền mặt: ${totalVND.toLocaleString('vi-VN')} ₫` : ''}.
-                  Vui lòng bấm xác nhận sau khi bạn đã nhận đủ sách từ shipper.
+                  {ghnDelivered
+                    ? ' Vui lòng kiểm tra đủ số lượng sách rồi bấm "Tôi Đã Nhận Được Hàng" để hoàn tất đơn.'
+                    : ' Vui lòng bấm xác nhận sau khi bạn đã nhận đủ sách từ shipper.'}
                 </p>
               </div>
             </div>
