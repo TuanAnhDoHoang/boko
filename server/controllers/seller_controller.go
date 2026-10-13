@@ -1,16 +1,19 @@
 package controllers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	"boko/config"
 	"boko/models"
+	"boko/services"
 )
 
 // ==================== SELLER DASHBOARD ====================
@@ -62,7 +65,7 @@ func SellerGetOrders(c *gin.Context) {
 
 	var orders []models.Order
 	if len(orderIDs) > 0 {
-		config.DB.Preload("Items").Preload("User").
+		config.DB.Preload("Items").Preload("User").Preload("Shipment").
 			Where("id IN ?", orderIDs).
 			Order("created_at DESC").
 			Find(&orders)
@@ -219,8 +222,74 @@ func SellerUpdateOrderStatus(c *gin.Context) {
 
 	// 6. Cập nhật trạng thái thông thường
 	config.DB.Model(&order).Update("status", input.Status)
+
+	// 7. ĐÃ ĐÓNG GÓI (shipping) => chuyển luôn cho GHN quản lý vận chuyển.
+	//    Chạy nền để không làm chậm phản hồi; GHN lỗi chỉ log lại, người bán
+	//    vẫn bấm "Chuyển cho GHN" thủ công ở bước sau (idempotent, không trùng).
+	if input.Status == "shipping" {
+		go autoHandoverToGHNAsync(order.ID)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Cập nhật trạng thái đơn hàng thành công!",
 		"status":  input.Status,
 	})
+}
+
+// autoHandoverToGHN — tạo vận đơn GHN cho đơn đã đóng gói (best effort).
+// Trả về lỗi để caller chỉ log, không chặn cập nhật trạng thái.
+func autoHandoverToGHN(orderID uint) error {
+	cfg := services.GetGHNConfig()
+	if !cfg.IsConfigured() {
+		return errors.New("chưa cấu hình GHN_TOKEN/GHN_SHOP_ID")
+	}
+
+	var existing models.Shipment
+	if err := config.DB.Where("order_id = ? AND provider = ?", orderID, "ghn").First(&existing).Error; err == nil {
+		return nil // đã có vận đơn thì thôi
+	}
+
+	var order models.Order
+	if err := config.DB.Preload("Items").Preload("User").First(&order, orderID).Error; err != nil {
+		return err
+	}
+	if order.Status == "completed" || order.Status == "cancelled" {
+		return errors.New("đơn đã " + order.Status)
+	}
+
+	payload, codAmount, err := buildGHNPayload(order, cfg, ghnHandoverRequest{})
+	if err != nil {
+		return err
+	}
+
+	created, err := services.CreateGHNOrder(payload)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	shipment := models.Shipment{
+		OrderID:         order.ID,
+		Provider:        "ghn",
+		ClientOrderCode: payload.ClientOrderCode,
+		OrderCode:       created.Data.OrderCode,
+		Status:          "ready_to_pick",
+		StatusText:      services.GHNStatusText("ready_to_pick"),
+		ServiceTypeID:   payload.ServiceTypeID,
+		PaymentTypeID:   payload.PaymentTypeID,
+		TotalFee:        created.Data.TotalFee,
+		CODAmount:       round2(codAmount),
+		Leadtime:        services.ParseGHNTime(created.Data.ExpectedDeliveryTime),
+		LastSyncedAt:    &now,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	if raw, marshalErr := json.Marshal(created.Data); marshalErr == nil {
+		shipment.Payload = string(raw)
+	}
+	if err := config.DB.Create(&shipment).Error; err != nil {
+		return err
+	}
+	recordShipmentEvent(order.ID, shipment.ID, shipment.Status, "auto")
+	return nil
 }

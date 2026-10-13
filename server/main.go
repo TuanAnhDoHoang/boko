@@ -47,6 +47,8 @@ func main() {
 		&models.OrderItem{},
 		&models.Review{},
 		&models.Coupon{},
+		&models.Shipment{},
+		&models.ShipmentEvent{},
 	)
 
 	// Tạo router Gin
@@ -80,6 +82,87 @@ func main() {
 
 	// Chạy server
 	r.Run(":8080")
+}
+
+// demoCatalogBooks — danh mục sách mẫu của frontend (app/src/data/books.ts).
+// Seed xuống DB để mọi cuốn trên kệ đều mua được thật qua COD/cổng thanh toán.
+var demoCatalogBooks = []struct {
+	Title       string
+	Author      string
+	Category    string
+	Price       float64
+	Stock       int
+	ImageURL    string
+	Description string
+}{
+	{
+		Title: "Bóng Tối Phố Baker", Author: "Arthur Conan Doyle", Category: "Mystery",
+		Price: 240000, Stock: 60,
+		ImageURL:    "https://lh3.googleusercontent.com/aida-public/AB6AXuDCfxWh0sp0lzL_jUmX_W2r3Nmbq37cAx5PzRnz64HkSP-U5MbCrwaq1CzftUcLDX8uT0T9-F84I8Pm79RJn8TtpXz73_w_pD8n2rHX9YrDMqo4pYPOez0E12EGfwy1bcbAVsdhfZeAd79MoLJt-tslWZ4JXnQbwdLSk8cUTZF0SuV8LBWbJBAoiB17fRKs7TN3GxrOriyCgtVIx4kWlgz7i7Hq49Y82n0orgkLFUWXlG3SuAXnqvRR5A",
+		Description: "Bóng tối bao trùm con hẻm vắng lặng phố Baker, nơi những vụ án ly kỳ chờ đón bước chân nhà thám tử lừng danh.",
+	},
+	{
+		Title: "Vết Cắt", Author: "Phạm Gia Bảo", Category: "Mystery",
+		Price: 225000, Stock: 55,
+		ImageURL:    "https://lh3.googleusercontent.com/aida-public/AB6AXuChDYT25hMiy4fGpGIsbsGfjKFL7ZVQwdl8wYTXz0x2XbekBq8w0tcUmJ-WSoASDTXmqXNZ2VtJvvu_T9bSkb_Wv3xcwg4qCJCJJf73cFbpDfYmit78I1Y6XPsd9num7wWNXrzP-Q-6M8_8TOBvfIHsG6xq_txUl4wD0jYGv0roVzBCNaNKMoxO6VCS-Xx5dJsOhClUGDFPlZRuOL1MIKIzi52NnDdIwSPJpZiVRb2H7Pbjqiud-6Q_OtA",
+		Description: "Một tác phẩm tâm lý tội phạm u tối xoay quanh vết cắt bí ẩn làm rung chuyển cả dòng họ.",
+	},
+	{
+		Title: "Vực Thẳm Lạnh Lẽo", Author: "Hoàng Minh Trạng", Category: "Mystery",
+		Price: 250000, Stock: 45,
+		ImageURL:    "https://lh3.googleusercontent.com/aida-public/AB6AXuDeoPVHaZVAKEkRGrc5_oWMAk_eYZz2ipZV1AAg52lUCFWVPeIOVHGUH3zE7ZewD8vDLSTgApI3ijH77VYF6mh-Bd0yLQF7ybV0mCUZU3fOcmSA_hvJ1jbLfLScLcqRAvuv5CDWTDGa5WgJl7RdoTjggWNnQOBDXjGuisdH9cWpyG78B4k6BfvarIkDYp6vXaT7JtiXLF1KKgynUnDGqWAltYefwolpF5yFbt5Kt3iYYCxmBR38WVDcnQ",
+		Description: "Cuộc truy lùng gã sát nhân bí ẩn giữa vùng núi hẻo lánh bao phủ bởi mây mù và vách đá dốc đứng.",
+	},
+	{
+		Title: "Bí Ấn Của Chiếc Đồng Hồ Cổ", Author: "Agatha Christie", Category: "Mystery",
+		Price: 210000, Stock: 70,
+		ImageURL:    "https://lh3.googleusercontent.com/aida-public/AB6AXuBPbcE1ztksqe9U7V6M_1YgHrMRmRZs-6BDvuP7nMto_0W-_5R8c1-8xHkOiRD2HB1pZJCzdhskHUyB2rBvsCQoVvsOggBK2APkp_rLBJkbBEAVY7neQO6EVIFIJwp1loKwfSwUXUdZmmTlY9-D2ND7s87rAC65fkq5xHC1pTtvVZ7hHed3Zu5W4aQrKqpaulq4KJFfRgCMoljDsxg2mXq9gqubsWxLErxKcGAWxFV1PO4N0H0VmYpE1A",
+		Description: "Một vụ án hóc húa khi năm chiếc đồng hồ cổ trong căn phòng nạn nhân đều dừng đúng ở thời điểm 4 giờ 13 phút.",
+	},
+	{
+		Title: "Gió Lạnh Đầu Mùa", Author: "Thạch Lam", Category: "Literature",
+		Price: 180000, Stock: 80,
+		ImageURL:    "https://lh3.googleusercontent.com/aida-public/AB6AXuBMO3iuYigtjk1EySNX3heNHOE43nAMlKZl1WQxOX7Ocd2KhjBz8qoTDeqwAKUje_nx6_ctGsM7G6aDj4WmULyD0uR_Wckuhv8_nl02YMAEWET-hOej0fcrdDYq9IT559QtmN9HBrvKbHHG08EivYCJ_v1G2Y-9iax9CFXUKW-qnA1VE_zVcrQTdZ2P1jkX9t2DPKb6Rl4WiJ9u_7ZHK_D_Z46WMw-An4GYz55WZ7qMcOvsYyE4dvLXZL8cfTp4ctLVj04",
+		Description: "Tập truyện ngắn dịu dàng, ấm áp tình người trong những ngày đầu đông xứ Bắc.",
+	},
+	{
+		Title: "Dưới Bóng Hoa Tàn", Author: "Lê Phương Thảo", Category: "Literature",
+		Price: 200000, Stock: 65,
+		ImageURL:    "https://lh3.googleusercontent.com/aida-public/AB6AXuC-84D2ndfimeOlPT2_LK8a2gWhnnYkWle5ooDMinZVSJCqLcyBg_vgAz4OAQQlX0CtRRvTseVm3oPcr9nHoQ2ObowH8IG403I-N5gAMY9gLwcsCB5orgFQcPnuCtgGJ-380EH0XypVPo9TlQyjD72Z1NWiCOsm5sW0ciu-mhIv3Mo0CLgMMP5Sg96kZ5LUZrgM7dKod2f8lpNUOzpBepmrGf7BFln31m4bANoY-MJEMxEa2NkBMcBj1w",
+		Description: "Tiểu thuyết lãng mạn nhẹ nhàng xoay quanh những kỷ niệm tuổi trẻ và những đóa hoa mùa hạ.",
+	},
+	{
+		Title: "The Shifting Tides", Author: "Eliza Vance", Category: "Literature",
+		Price: 260000, Stock: 40,
+		ImageURL:    "https://lh3.googleusercontent.com/aida-public/AB6AXuA0OSXgiMKLi6Gw7zLxaKFJt6QyUBql8n9AID4BmbmJXYLFxlRGD5dxeC4Fj1KHAODM4-Yt9yTPSC32te5Ujm60vI40eog1JzGqId7FcWSZb9hm05gCwzaYl-KYdSpEHMuvo4eZe0W372JOmJqzWEdU_74M-rsMtspve6YJWcLR1D5GBzGp3s4v3W_QcHYBcjWYg79mIuRV95Xn2D-hFBITYr9OoSEHheyc9GfHAFzWWG94p3VlmFw-_g",
+		Description: "A poetic literary novel exploring human connection and the passing of generations along the coastline.",
+	},
+	{
+		Title: "L'Étranger", Author: "Albert Camus", Category: "Literature",
+		Price: 240000, Stock: 90,
+		ImageURL:    "https://lh3.googleusercontent.com/aida-public/AB6AXuAMmrVi1HZtk0j2V8SVSuMmHBIUX0oNAHwkxVKk3q0h3zQQiRNTRbE-5N5Bwuhk8a1Cy0vpDMnZrIpZrx7LYQIj41lhJ6WW0hFpMWUMS-_dCJOMUqDWgl5JD31eyoLktacAZ81q668R300goQc7QRRI-YtcdZfCcQ5ePgjA9GHz0EqyWg0gZxzhJ3CeSbQQ3ZcCkAlYAfDC68av5rURiElgkcov58r30L9Bp6mQZ86SK8AGHMmccC-Z4w",
+		Description: "Tác phẩm kinh điển triết học phi lý của Albert Camus xoay quanh Meursault và cái nắng thiêu đốt của Alger.",
+	},
+	{
+		Title: "Đại Việt Sử Ký Toàn Thư", Author: "Ngô Sĩ Liên", Category: "History",
+		Price: 320000, Stock: 55, ImageURL: "",
+		Description: "Bộ chính sử vô giá ghi chép từ thời Hồng Bàng đến triều đại Nhà Lê.",
+	},
+	{
+		Title: "Sử Ký Tư Mã Thiên", Author: "Tư Mã Thiên", Category: "History",
+		Price: 290000, Stock: 50, ImageURL: "",
+		Description: "Tuyệt tác lịch sử văn học Trung Hoa ghi chép hơn ba nghìn năm biến động.",
+	},
+	{
+		Title: "Vũ Trụ Của Carl Sagan", Author: "Carl Sagan", Category: "Science",
+		Price: 280000, Stock: 60, ImageURL: "",
+		Description: "Hành trình kỳ diệu khám phá vũ trụ bao la, hành tinh Trái Đất và nguồn gốc sự sống.",
+	},
+	{
+		Title: "Câu Chuyện Nghệ Thuật", Author: "E.H. Gombrich", Category: "Art",
+		Price: 350000, Stock: 80, ImageURL: "",
+		Description: "Cuốn sách nhập môn nghệ thuật nổi tiếng nhất thế giới từ thời tiền sử đến hiện đại.",
+	},
 }
 
 // seedData — tạo dữ liệu mẫu nếu database trống.
@@ -130,6 +213,34 @@ func seedData() {
 			if err := config.DB.Where("title = ?", b.Title).First(&existing).Error; err != nil {
 				config.DB.Create(&b)
 			}
+		}
+
+		// Đồng bộ danh mục sách demo của frontend (app/src/data/books.ts) xuống DB.
+		// Nhờ đó mọi cuốn hiển thị trên kệ đều có bản ghi thật (kèm tồn kho) nên
+		// người dùng mua được bằng COD thay vì bị lỗi "Mã sách ... không hợp lệ".
+		for _, d := range demoCatalogBooks {
+			var existing models.Book
+			if err := config.DB.Where("title = ?", d.Title).First(&existing).Error; err == nil {
+				continue
+			}
+
+			var cat models.Category
+			config.DB.Where("name = ?", d.Category).First(&cat)
+
+			book := models.Book{
+				Title:       d.Title,
+				Author:      d.Author,
+				Description: d.Description,
+				Price:       d.Price,
+				Stock:       d.Stock,
+				ImageURL:    d.ImageURL,
+				UserID:      admin.ID,
+			}
+			if cat.ID > 0 {
+				book.CategoryID = &cat.ID
+			}
+			config.DB.Create(&book)
+			log.Printf("seed: đã tạo sách danh mục %q (%s)", d.Title, d.Category)
 		}
 	}
 }

@@ -87,6 +87,8 @@ func CreateMomoPayment(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo đơn hàng: " + err.Error()})
 			return
 		}
+		// Tự động chuyển cho GHN quản lý vận chuyển (nền, không chặn phản hồi)
+		go autoHandoverToGHNAsync(order.ID)
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Vui lòng cung cấp order_id hoặc số tiền amount hợp lệ (>= 1,000 VND)"})
 		return
@@ -482,6 +484,8 @@ func CreatePaypalPayment(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo đơn hàng: " + err.Error()})
 			return
 		}
+		// Tự động chuyển cho GHN quản lý vận chuyển (nền, không chặn phản hồi)
+		go autoHandoverToGHNAsync(order.ID)
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Số tiền thanh toán PayPal tối thiểu là 1,000 VND"})
 		return

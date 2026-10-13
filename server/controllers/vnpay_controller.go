@@ -94,6 +94,8 @@ func CreateVnPayPayment(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo đơn hàng: " + err.Error()})
 			return
 		}
+		// Tự động chuyển cho GHN quản lý vận chuyển (nền, không chặn phản hồi)
+		go autoHandoverToGHNAsync(order.ID)
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Số tiền thanh toán VNPAY tối thiểu là 5,000 VND"})
 		return

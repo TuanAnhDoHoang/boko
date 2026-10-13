@@ -90,7 +90,7 @@ function getBackendBaseUrl(): string {
     }
   }
   //return 'http://localhost:8080';
-  return '/api';
+  return '';
 }
 
 function authHeaders(): Record<string, string> {
@@ -186,4 +186,141 @@ export async function getMyOrdersApi(email?: string): Promise<any[]> {
   }
 
   return data.data || [];
+}
+
+/**
+ * Lấy danh sách đơn hàng chứa sách của người bán (dùng cho seller/admin
+ * quản lý và chuyển đơn cho GHN). Endpoint: GET /api/seller/orders
+ */
+export async function getSellerOrdersApi(): Promise<any[]> {
+  const baseUrl = getBackendBaseUrl();
+  const response = await fetch(`${baseUrl}/api/seller/orders`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...authHeaders(),
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Lỗi lấy đơn hàng của shop: HTTP ${response.status}`);
+  }
+
+  return data.data || [];
+}
+
+// ==================== GHN SHIPPING ====================
+
+export interface ShipmentApiResponse {
+  shipment: {
+    id: number;
+    order_id: number;
+    provider: string;
+    client_order_code: string;
+    order_code: string;
+    status: string;
+    status_text: string;
+    service_type_id: number;
+    payment_type_id: number;
+    total_fee: number;
+    cod_amount: number;
+    leadtime: string | null;
+    last_synced_at: string | null;
+    created_at: string;
+  } | null;
+  history?: {
+    id: number;
+    order_id: number;
+    shipment_id: number;
+    status: string;
+    status_text: string;
+    source: string;
+    created_at: string;
+  }[];
+  journey?: {
+    key: string;
+    title: string;
+    done: boolean;
+    current: boolean;
+    warning: boolean;
+    at: string | null;
+  }[];
+  order_status?: string;
+  message?: string;
+}
+
+/**
+ * Lấy thông tin vận đơn GHN đang quản lý cho 1 đơn hàng.
+ * Endpoint: GET /api/orders/:id/ghn
+ */
+export async function getOrderShipmentApi(orderId: number | string): Promise<ShipmentApiResponse> {
+  const baseUrl = getBackendBaseUrl();
+  const response = await fetch(`${baseUrl}/api/orders/${orderId}/ghn`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...authHeaders(),
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Lỗi lấy thông tin vận chuyển: HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
+ * Chuyển đơn đã đóng gói sang GHN quản lý vận chuyển (dùng cho người bán/admin).
+ * Endpoint: POST /api/orders/:id/ghn/handover
+ */
+export async function handoverToGHNApi(
+  orderId: number | string,
+  overrides?: { to_district_id?: number; to_ward_code?: string; to_address?: string }
+): Promise<ShipmentApiResponse & { message?: string }> {
+  const baseUrl = getBackendBaseUrl();
+  const response = await fetch(`${baseUrl}/api/orders/${orderId}/ghn/handover`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify(overrides || {}),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Lỗi chuyển đơn cho GHN: HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
+ * Đồng bộ trạng thái mới nhất từ GHN (webhook chưa tới hoặc cần refresh tay).
+ * Endpoint: POST /api/orders/:id/ghn/sync
+ */
+export async function syncOrderShipmentApi(orderId: number | string): Promise<ShipmentApiResponse> {
+  const baseUrl = getBackendBaseUrl();
+  const response = await fetch(`${baseUrl}/api/orders/${orderId}/ghn/sync`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      ...authHeaders(),
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Lỗi đồng bộ vận đơn: HTTP ${response.status}`);
+  }
+
+  return data;
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, ShippingAddress, SavedPaymentMethod } from '../types';
 import logoImg from '../assets/images/app_main_logo_1786578722639.jpg';
 import { OrderProgressStepper } from './OrderProgressStepper';
-import { getMyOrdersApi } from '../api/order';
+import { getMyOrdersApi, getSellerOrdersApi, handoverToGHNApi } from '../api/order';
 
 export type SettingsTab = 'profile' | 'orders' | 'address' | 'payments';
 
@@ -180,9 +180,19 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   useEffect(() => {
     if (activeTab === 'orders' || isOpen) {
       setIsLoadingOrders(true);
-      getMyOrdersApi(user?.email)
-        .then((backendOrders) => {
-          if (Array.isArray(backendOrders) && backendOrders.length > 0) {
+      // Đơn của chính tôi + (nếu là seller/admin) đơn chứa sách của shop để quản lý/GHN
+      const myOrdersP = getMyOrdersApi(user?.email).catch(() => [] as any[]);
+      const sellerOrdersP =
+        user?.role === 'admin' || user?.role === 'seller'
+          ? getSellerOrdersApi().catch(() => [] as any[])
+          : Promise.resolve([] as any[]);
+      Promise.all([myOrdersP, sellerOrdersP])
+        .then(([myOrders, sellerOrders]) => {
+          const backendOrders = [
+            ...(Array.isArray(myOrders) ? myOrders : []),
+            ...(Array.isArray(sellerOrders) ? sellerOrders : []),
+          ];
+          if (backendOrders.length > 0) {
             const localSaved = (() => {
               try {
                 return JSON.parse(localStorage.getItem('boko_orders') || '[]');
@@ -217,6 +227,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                   paymentMethod: bo.payment_method || 'cod',
                   shippingAddress: bo.shipping_address,
                   phone: bo.phone,
+                  shipment: bo.shipment || null,
                 });
               }
             });
@@ -250,6 +261,46 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
       return updated;
     });
     showToast('Cập nhật trạng thái đơn hàng thành công!');
+  };
+
+  // Chuyển đơn đã đóng gói cho GHN quản lý vận chuyển (chỉ admin/seller)
+  const [handoveringOrderId, setHandoveringOrderId] = useState<string | number | null>(null);
+  const [ghnRefreshTick, setGhnRefreshTick] = useState(0);
+
+  const handleHandoverToGHN = async (order: any) => {
+    const dbId = order.dbId || order.id;
+    setHandoveringOrderId(order.id);
+    try {
+      const res = await handoverToGHNApi(dbId);
+      if (res?.shipment) {
+        setOrdersList((prev) => {
+          const updated = prev.map((ord) => {
+            if (ord.id === order.id || ord.dbId === dbId || String(ord.id) === String(dbId)) {
+              return {
+                ...ord,
+                shipment: res.shipment,
+                status: res.order_status || ord.status,
+              };
+            }
+            return ord;
+          });
+          try {
+            localStorage.setItem('boko_orders', JSON.stringify(updated));
+          } catch (e) {
+            console.error(e);
+          }
+          return updated;
+        });
+        setGhnRefreshTick((t) => t + 1);
+        showToast(`Đã chuyển đơn cho GHN. Mã vận đơn: ${res.shipment.order_code}`);
+      } else {
+        showToast(res?.message || 'Đơn đã được chuyển cho GHN trước đó.');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Chuyển đơn cho GHN thất bại.');
+    } finally {
+      setHandoveringOrderId(null);
+    }
   };
 
   // Sync state with user and initial tab
@@ -1407,6 +1458,23 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                                 <span>Đang Giao Hàng</span>
                               </span>
                             )}
+                            {(user?.role === 'admin' || user?.role === 'seller') &&
+                              !order.shipment &&
+                              order.status !== 'completed' &&
+                              order.status !== 'cancelled' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleHandoverToGHN(order)}
+                                  disabled={handoveringOrderId === order.id}
+                                  className="text-xs font-bold px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 flex items-center gap-1.5 border border-orange-200 hover:bg-orange-200 transition-colors disabled:opacity-50 cursor-pointer"
+                                  title="Chuyển đơn đã đóng gói cho GHN (bên thứ 3) quản lý vận chuyển"
+                                >
+                                  <i className="fa-solid fa-truck-fast"></i>
+                                  <span>
+                                    {handoveringOrderId === order.id ? 'Đang chuyển...' : 'Chuyển cho GHN'}
+                                  </span>
+                                </button>
+                              )}
                           </div>
                         </div>
 
@@ -1461,6 +1529,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                             paymentStatus={order.paymentStatus || 'unpaid'}
                             totalVND={order.totalVND || order.total}
                             compact={false}
+                            refreshTick={ghnRefreshTick}
                             onConfirmSuccess={() => {
                               handleUpdateOrderStatus(order.id, 'completed', 'paid');
                             }}
